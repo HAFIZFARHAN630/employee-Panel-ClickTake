@@ -1,15 +1,12 @@
 {
   "hosting": {
-    "public": "public",
+    "public": "out",
     "ignore": [
       "firebase.json",
+      ".firebaserc",
       "**/node_modules/**"
     ],
     "rewrites": [
-      {
-        "source": "/api/**",
-        "destination": "https://employee-panel-clicktake.onrender.com/api/**"
-      },
       {
         "source": "**",
         "destination": "/index.html"
@@ -20,7 +17,8 @@
         "source": "**",
         "headers": [
           { "key": "X-Content-Type-Options", "value": "nosniff" },
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+          { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+          { "key": "X-XSS-Protection", "value": "1; mode=block" }
         ]
       }
     ]
