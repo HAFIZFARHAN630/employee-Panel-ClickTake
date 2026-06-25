@@ -332,3 +332,28 @@ Work Log:
 Stage Summary:
 - /home/z/my-project/supabase-migration.sql — Full PostgreSQL DDL migration
 - /home/z/my-project/prisma/schema.postgresql.prisma — Prisma schema for PostgreSQL
+
+---
+Task ID: 30
+Agent: general-purpose
+Task: Regenerate clean Supabase SQL migration
+
+Work Log:
+- Read prisma/schema.postgresql.prisma (27 models, 498 lines)
+- Regenerated /home/z/my-project/supabase-migration.sql from scratch
+- Starts with DROP SCHEMA public CASCADE + CREATE SCHEMA public + grants
+- Creates uuid-ossp extension (without IF NOT EXISTS per spec)
+- All 27 tables in correct dependency order with exact Prisma column definitions
+- Type mapping: String→TEXT, Boolean→BOOLEAN, Int→INTEGER, Float→DOUBLE PRECISION, DateTime→TIMESTAMP WITH TIME ZONE
+- Primary keys use gen_random_uuid(), nullable columns match Prisma exactly
+- 12 ON DELETE CASCADE constraints where Prisma specifies onDelete: Cascade
+- 28 indexes created (10 unique, 18 non-unique) covering all specified columns
+- Zero "IF NOT EXISTS" occurrences (clean schema, no conflicts)
+- Verification query at end
+
+Stage Summary:
+- 27 tables confirmed (rg -c "^CREATE TABLE " = 27)
+- 56 total CREATE statements (27 tables + 29 indexes)
+- 12 CASCADE foreign keys
+- No IF NOT EXISTS anywhere
+- File: /home/z/my-project/supabase-migration.sql

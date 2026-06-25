@@ -1,0 +1,535 @@
+     1→-- Employee Management System - Supabase PostgreSQL Migration
+     2→-- Generated from Prisma SQLite schema
+     3→-- All column types converted to PostgreSQL equivalents
+     4→
+     5→CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+     6→
+     7→-- ============================================================================
+     8→-- TABLE: tenants (no dependencies)
+     9→-- ============================================================================
+    10→CREATE TABLE IF NOT EXISTS tenants (
+    11→  id         TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    12→  name       TEXT NOT NULL,
+    13→  slug       TEXT NOT NULL,
+    14→  org_code   TEXT NOT NULL DEFAULT 'ORG001',
+    15→  is_active  BOOLEAN NOT NULL DEFAULT true,
+    16→  country    TEXT NOT NULL DEFAULT '',
+    17→  region     TEXT NOT NULL DEFAULT '',
+    18→  timezone   TEXT NOT NULL DEFAULT 'Asia/Karachi',
+    19→  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    20→  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    21→);
+    22→
+    23→CREATE UNIQUE INDEX IF NOT EXISTS tenants_slug_key ON tenants (slug);
+    24→
+    25→-- ============================================================================
+    26→-- TABLE: users (depends on: tenants)
+    27→-- ============================================================================
+    28→CREATE TABLE IF NOT EXISTS users (
+    29→  id               TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    30→  email            TEXT NOT NULL,
+    31→  password         TEXT NOT NULL DEFAULT '',
+    32→  full_name        TEXT NOT NULL,
+    33→  user_type        TEXT NOT NULL DEFAULT 'employee',
+    34→  role             TEXT NOT NULL DEFAULT 'viewer',
+    35→  is_active        BOOLEAN NOT NULL DEFAULT false,
+    36→  requested_role   TEXT,
+    37→  is_superuser     BOOLEAN NOT NULL DEFAULT false,
+    38→  is_face_verified BOOLEAN NOT NULL DEFAULT false,
+    39→  avatar_url       TEXT,
+    40→  tenant_id        TEXT,
+    41→  created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    42→  updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    43→
+    44→  CONSTRAINT users_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants (id)
+    45→);
+    46→
+    47→CREATE UNIQUE INDEX IF NOT EXISTS users_email_key ON users (email);
+    48→CREATE INDEX IF NOT EXISTS users_tenant_id_idx ON users (tenant_id);
+    49→CREATE INDEX IF NOT EXISTS users_user_type_idx ON users (user_type);
+    50→
+    51→-- ============================================================================
+    52→-- TABLE: rbac_roles (no dependencies)
+    53→-- ============================================================================
+    54→CREATE TABLE IF NOT EXISTS rbac_roles (
+    55→  id          TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    56→  role_id     TEXT NOT NULL,
+    57→  name        TEXT NOT NULL,
+    58→  description TEXT NOT NULL DEFAULT '',
+    59→  color       TEXT NOT NULL DEFAULT '#6b7280',
+    60→  is_system   BOOLEAN NOT NULL DEFAULT false,
+    61→  parent_role TEXT,
+    62→  permissions TEXT NOT NULL DEFAULT '[]',
+    63→  created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    64→  updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    65→);
+    66→
+    67→CREATE UNIQUE INDEX IF NOT EXISTS rbac_roles_role_id_key ON rbac_roles (role_id);
+    68→
+    69→-- ============================================================================
+    70→-- TABLE: signup_policies (no dependencies)
+    71→-- ============================================================================
+    72→CREATE TABLE IF NOT EXISTS signup_policies (
+    73→  id           TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    74→  label        TEXT NOT NULL,
+    75→  title        TEXT NOT NULL,
+    76→  storage_path TEXT NOT NULL DEFAULT '',
+    77→  file_name    TEXT NOT NULL DEFAULT '',
+    78→  file_url     TEXT NOT NULL DEFAULT '',
+    79→  created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    80→  updated_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    81→);
+    82→
+    83→-- ============================================================================
+    84→-- TABLE: agreement_templates (no dependencies)
+    85→-- ============================================================================
+    86→CREATE TABLE IF NOT EXISTS agreement_templates (
+    87→  id                    TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    88→  title                 TEXT NOT NULL,
+    89→  content               TEXT NOT NULL DEFAULT '',
+    90→  applicable_roles      TEXT NOT NULL DEFAULT '[]',
+    91→  applicable_departments TEXT NOT NULL DEFAULT '[]',
+    92→  version               TEXT NOT NULL DEFAULT '1.0',
+    93→  is_active             BOOLEAN NOT NULL DEFAULT true,
+    94→  created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    95→  updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    96→);
+    97→
+    98→-- ============================================================================
+    99→-- TABLE: shifts (no dependencies)
+   100→-- ============================================================================
+   101→CREATE TABLE IF NOT EXISTS shifts (
+   102→  id              TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   103→  name            TEXT NOT NULL,
+   104→  type            TEXT NOT NULL DEFAULT 'working',
+   105→  start_time      TEXT NOT NULL DEFAULT '09:00',
+   106→  end_time        TEXT NOT NULL DEFAULT '17:00',
+   107→  applicable_type TEXT NOT NULL DEFAULT 'office',
+   108→  applicable_ids  TEXT NOT NULL DEFAULT '[]',
+   109→  is_active       BOOLEAN NOT NULL DEFAULT true,
+   110→  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   111→  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+   112→);
+   113→
+   114→-- ============================================================================
+   115→-- TABLE: branding_settings (no dependencies)
+   116→-- ============================================================================
+   117→CREATE TABLE IF NOT EXISTS branding_settings (
+   118→  id                TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   119→  logo_urls         TEXT NOT NULL DEFAULT '[]',
+   120→  office_locations  TEXT NOT NULL DEFAULT '[]',
+   121→  contact_emails    TEXT NOT NULL DEFAULT '[]',
+   122→  contact_phones    TEXT NOT NULL DEFAULT '[]',
+   123→  social_media_links TEXT NOT NULL DEFAULT '{}',
+   124→  primary_color     TEXT NOT NULL DEFAULT '#E0197A',
+   125→  secondary_color   TEXT NOT NULL DEFAULT '#7B2FBE',
+   126→  created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   127→  updated_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+   128→);
+   129→
+   130→-- ============================================================================
+   131→-- TABLE: ai_model_configs (no dependencies)
+   132→-- ============================================================================
+   133→CREATE TABLE IF NOT EXISTS ai_model_configs (
+   134→  id         TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   135→  model_name TEXT NOT NULL DEFAULT '',
+   136→  provider   TEXT NOT NULL DEFAULT 'openai',
+   137→  api_key    TEXT NOT NULL DEFAULT '',
+   138→  purpose    TEXT NOT NULL DEFAULT '',
+   139→  is_active  BOOLEAN NOT NULL DEFAULT true,
+   140→  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   141→  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+   142→);
+   143→
+   144→-- ============================================================================
+   145→-- TABLE: password_reset_tokens (no dependencies)
+   146→-- ============================================================================
+   147→CREATE TABLE IF NOT EXISTS password_reset_tokens (
+   148→  id         TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   149→  email      TEXT NOT NULL,
+   150→  token      TEXT NOT NULL,
+   151→  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+   152→  used_at    TIMESTAMP WITH TIME ZONE,
+   153→  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+   154→);
+   155→
+   156→CREATE UNIQUE INDEX IF NOT EXISTS password_reset_tokens_token_key ON password_reset_tokens (token);
+   157→
+   158→-- ============================================================================
+   159→-- TABLE: hr_training_data (no dependencies)
+   160→-- ============================================================================
+   161→CREATE TABLE IF NOT EXISTS hr_training_data (
+   162→  id         TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   163→  question   TEXT NOT NULL,
+   164→  answer     TEXT NOT NULL DEFAULT '',
+   165→  category   TEXT NOT NULL DEFAULT '',
+   166→  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   167→  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+   168→);
+   169→
+   170→-- ============================================================================
+   171→-- TABLE: individual_users (depends on: users)
+   172→-- ============================================================================
+   173→CREATE TABLE IF NOT EXISTS individual_users (
+   174→  id          TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   175→  user_id     TEXT NOT NULL,
+   176→  phone_number TEXT,
+   177→  address     TEXT,
+   178→  created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   179→  updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   180→
+   181→  CONSTRAINT individual_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+   182→);
+   183→
+   184→CREATE UNIQUE INDEX IF NOT EXISTS individual_users_user_id_key ON individual_users (user_id);
+   185→
+   186→-- ============================================================================
+   187→-- TABLE: employees (depends on: users)
+   188→-- ============================================================================
+   189→CREATE TABLE IF NOT EXISTS employees (
+   190→  id              TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   191→  user_id         TEXT NOT NULL,
+   192→  department      TEXT NOT NULL DEFAULT 'General',
+   193→  designation     TEXT NOT NULL DEFAULT 'Employee',
+   194→  hourly_rate     DOUBLE PRECISION,
+   195→  face_photo_urls TEXT NOT NULL DEFAULT '[]',
+   196→  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   197→  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   198→
+   199→  CONSTRAINT employees_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+   200→);
+   201→
+   202→CREATE UNIQUE INDEX IF NOT EXISTS employees_user_id_key ON employees (user_id);
+   203→CREATE INDEX IF NOT EXISTS employees_department_idx ON employees (department);
+   204→
+   205→-- ============================================================================
+   206→-- TABLE: notifications (depends on: users)
+   207→-- ============================================================================
+   208→CREATE TABLE IF NOT EXISTS notifications (
+   209→  id               TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   210→  user_id          TEXT NOT NULL,
+   211→  message          TEXT NOT NULL,
+   212→  notification_type TEXT NOT NULL DEFAULT 'info',
+   213→  is_read          BOOLEAN NOT NULL DEFAULT false,
+   214→  action_url       TEXT,
+   215→  scheduled_at     TIMESTAMP WITH TIME ZONE,
+   216→  expires_at       TIMESTAMP WITH TIME ZONE,
+   217→  created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   218→  updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   219→
+   220→  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+   221→);
+   222→
+   223→CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications (user_id);
+   224→CREATE INDEX IF NOT EXISTS notifications_is_read_idx ON notifications (is_read);
+   225→
+   226→-- ============================================================================
+   227→-- TABLE: announcements (depends on: users)
+   228→-- ============================================================================
+   229→CREATE TABLE IF NOT EXISTS announcements (
+   230→  id                  TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   231→  title               TEXT NOT NULL,
+   232→  description         TEXT NOT NULL DEFAULT '',
+   233→  content             TEXT NOT NULL DEFAULT '',
+   234→  priority            TEXT NOT NULL DEFAULT 'normal',
+   235→  status              TEXT NOT NULL DEFAULT 'active',
+   236→  expires_at          TIMESTAMP WITH TIME ZONE,
+   237→  created_by          TEXT,
+   238→  target_roles        TEXT NOT NULL DEFAULT '[]',
+   239→  target_departments  TEXT NOT NULL DEFAULT '[]',
+   240→  created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   241→  updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   242→
+   243→  CONSTRAINT announcements_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+   244→);
+   245→
+   246→CREATE INDEX IF NOT EXISTS announcements_status_idx ON announcements (status);
+   247→CREATE INDEX IF NOT EXISTS announcements_created_by_idx ON announcements (created_by);
+   248→
+   249→-- ============================================================================
+   250→-- TABLE: rbac_temp_access (depends on: users)
+   251→-- ============================================================================
+   252→CREATE TABLE IF NOT EXISTS rbac_temp_access (
+   253→  id           TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   254→  user_email   TEXT NOT NULL,
+   255→  role         TEXT NOT NULL,
+   256→  expires_at   TIMESTAMP WITH TIME ZONE NOT NULL,
+   257→  granted_by   TEXT,
+   258→  is_active    BOOLEAN NOT NULL DEFAULT true,
+   259→  created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   260→  updated_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   261→
+   262→  CONSTRAINT rbac_temp_access_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES users (id)
+   263→);
+   264→
+   265→CREATE INDEX IF NOT EXISTS rbac_temp_access_user_email_idx ON rbac_temp_access (user_email);
+   266→CREATE INDEX IF NOT EXISTS rbac_temp_access_is_active_idx ON rbac_temp_access (is_active);
+   267→
+   268→-- ============================================================================
+   269→-- TABLE: session_settings (depends on: tenants)
+   270→-- ============================================================================
+   271→CREATE TABLE IF NOT EXISTS session_settings (
+   272→  id                              TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   273→  time_tracking_timeout_minutes   INTEGER NOT NULL DEFAULT 15,
+   274→  time_tracking_warning_minutes   INTEGER NOT NULL DEFAULT 10,
+   275→  activity_check_interval_minutes INTEGER NOT NULL DEFAULT 5,
+   276→  popup_countdown_seconds         INTEGER NOT NULL DEFAULT 60,
+   277→  office_lat                      DOUBLE PRECISION NOT NULL DEFAULT 0,
+   278→  office_lng                      DOUBLE PRECISION NOT NULL DEFAULT 0,
+   279→  allowed_radius_meters           INTEGER NOT NULL DEFAULT 500,
+   280→  tenant_id                       TEXT,
+   281→  created_at                      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   282→  updated_at                      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   283→
+   284→  CONSTRAINT session_settings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants (id)
+   285→);
+   286→
+   287→CREATE INDEX IF NOT EXISTS session_settings_tenant_id_idx ON session_settings (tenant_id);
+   288→
+   289→-- ============================================================================
+   290→-- TABLE: activity_logs (depends on: users, tenants)
+   291→-- ============================================================================
+   292→CREATE TABLE IF NOT EXISTS activity_logs (
+   293→  id         TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   294→  user_id    TEXT,
+   295→  user_email TEXT NOT NULL DEFAULT '',
+   296→  action     TEXT NOT NULL,
+   297→  section    TEXT NOT NULL DEFAULT '',
+   298→  details    TEXT NOT NULL DEFAULT '{}',
+   299→  tenant_id  TEXT,
+   300→  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   301→
+   302→  CONSTRAINT activity_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id),
+   303→  CONSTRAINT activity_logs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants (id)
+   304→);
+   305→
+   306→CREATE INDEX IF NOT EXISTS activity_logs_user_id_idx ON activity_logs (user_id);
+   307→CREATE INDEX IF NOT EXISTS activity_logs_tenant_id_idx ON activity_logs (tenant_id);
+   308→CREATE INDEX IF NOT EXISTS activity_logs_action_idx ON activity_logs (action);
+   309→CREATE INDEX IF NOT EXISTS activity_logs_created_at_idx ON activity_logs (created_at);
+   310→
+   311→-- ============================================================================
+   312→-- TABLE: projects (depends on: tenants, users)
+   313→-- ============================================================================
+   314→CREATE TABLE IF NOT EXISTS projects (
+   315→  id              TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   316→  name            TEXT NOT NULL,
+   317→  description     TEXT NOT NULL DEFAULT '',
+   318→  status          TEXT NOT NULL DEFAULT 'draft',
+   319→  priority        TEXT NOT NULL DEFAULT 'medium',
+   320→  progress        INTEGER NOT NULL DEFAULT 0,
+   321→  budget          DOUBLE PRECISION NOT NULL DEFAULT 0,
+   322→  tags            TEXT NOT NULL DEFAULT '[]',
+   323→  department      TEXT NOT NULL DEFAULT '',
+   324→  tenant_id       TEXT,
+   325→  created_by      TEXT,
+   326→  owner_id        TEXT,
+   327→  is_duplicate_of TEXT,
+   328→  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   329→  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   330→
+   331→  CONSTRAINT projects_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants (id),
+   332→  CONSTRAINT projects_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id),
+   333→  CONSTRAINT projects_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES users (id)
+   334→);
+   335→
+   336→CREATE INDEX IF NOT EXISTS projects_tenant_id_idx ON projects (tenant_id);
+   337→CREATE INDEX IF NOT EXISTS projects_status_idx ON projects (status);
+   338→CREATE INDEX IF NOT EXISTS projects_created_by_idx ON projects (created_by);
+   339→CREATE INDEX IF NOT EXISTS projects_owner_id_idx ON projects (owner_id);
+   340→
+   341→-- ============================================================================
+   342→-- TABLE: project_tasks (depends on: projects)
+   343→-- ============================================================================
+   344→CREATE TABLE IF NOT EXISTS project_tasks (
+   345→  id              TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   346→  project_id      TEXT NOT NULL,
+   347→  title           TEXT NOT NULL,
+   348→  description     TEXT NOT NULL DEFAULT '',
+   349→  is_completed    BOOLEAN NOT NULL DEFAULT false,
+   350→  phase           TEXT NOT NULL DEFAULT '',
+   351→  estimated_hours DOUBLE PRECISION,
+   352→  assigned_to     TEXT,
+   353→  sort_order      INTEGER NOT NULL DEFAULT 0,
+   354→  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   355→  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   356→
+   357→  CONSTRAINT project_tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+   358→);
+   359→
+   360→CREATE INDEX IF NOT EXISTS project_tasks_project_id_idx ON project_tasks (project_id);
+   361→CREATE INDEX IF NOT EXISTS project_tasks_is_completed_idx ON project_tasks (is_completed);
+   362→
+   363→-- ============================================================================
+   364→-- TABLE: employee_projects (depends on: employees, projects, users)
+   365→-- ============================================================================
+   366→CREATE TABLE IF NOT EXISTS employee_projects (
+   367→  id               TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   368→  employee_id      TEXT NOT NULL,
+   369→  project_id       TEXT NOT NULL,
+   370→  assigned_by      TEXT,
+   371→  status           TEXT NOT NULL DEFAULT 'pending',
+   372→  progress_report  TEXT NOT NULL DEFAULT '',
+   373→  created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   374→  updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   375→
+   376→  CONSTRAINT employee_projects_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE,
+   377→  CONSTRAINT employee_projects_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+   378→  CONSTRAINT employee_projects_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES users (id)
+   379→);
+   380→
+   381→CREATE INDEX IF NOT EXISTS employee_projects_employee_id_idx ON employee_projects (employee_id);
+   382→CREATE INDEX IF NOT EXISTS employee_projects_project_id_idx ON employee_projects (project_id);
+   383→
+   384→-- ============================================================================
+   385→-- TABLE: leave_requests (depends on: employees)
+   386→-- ============================================================================
+   387→CREATE TABLE IF NOT EXISTS leave_requests (
+   388→  id          TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   389→  employee_id TEXT NOT NULL,
+   390→  type        TEXT NOT NULL,
+   391→  start_date  TIMESTAMP WITH TIME ZONE NOT NULL,
+   392→  end_date    TIMESTAMP WITH TIME ZONE NOT NULL,
+   393→  reason      TEXT NOT NULL DEFAULT '',
+   394→  status      TEXT NOT NULL DEFAULT 'pending',
+   395→  days        DOUBLE PRECISION NOT NULL DEFAULT 1,
+   396→  created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   397→  updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   398→
+   399→  CONSTRAINT leave_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE
+   400→);
+   401→
+   402→CREATE INDEX IF NOT EXISTS leave_requests_employee_id_idx ON leave_requests (employee_id);
+   403→CREATE INDEX IF NOT EXISTS leave_requests_status_idx ON leave_requests (status);
+   404→CREATE INDEX IF NOT EXISTS leave_requests_start_date_idx ON leave_requests (start_date);
+   405→
+   406→-- ============================================================================
+   407→-- TABLE: attendance (depends on: employees)
+   408→-- ============================================================================
+   409→CREATE TABLE IF NOT EXISTS attendance (
+   410→  id                   TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   411→  employee_id          TEXT NOT NULL,
+   412→  date                 TIMESTAMP WITH TIME ZONE NOT NULL,
+   413→  check_in             TIMESTAMP WITH TIME ZONE,
+   414→  check_out            TIMESTAMP WITH TIME ZONE,
+   415→  status               TEXT NOT NULL DEFAULT 'absent',
+   416→  hours                DOUBLE PRECISION NOT NULL DEFAULT 0,
+   417→  latitude             DOUBLE PRECISION,
+   418→  longitude            DOUBLE PRECISION,
+   419→  is_location_verified BOOLEAN NOT NULL DEFAULT false,
+   420→  created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   421→  updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   422→
+   423→  CONSTRAINT attendance_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE
+   424→);
+   425→
+   426→CREATE INDEX IF NOT EXISTS attendance_employee_id_idx ON attendance (employee_id);
+   427→CREATE INDEX IF NOT EXISTS attendance_date_idx ON attendance (date);
+   428→CREATE INDEX IF NOT EXISTS attendance_status_idx ON attendance (status);
+   429→CREATE UNIQUE INDEX IF NOT EXISTS attendance_employee_id_date_key ON attendance (employee_id, date);
+   430→
+   431→-- ============================================================================
+   432→-- TABLE: time_logs (depends on: employees)
+   433→-- ============================================================================
+   434→CREATE TABLE IF NOT EXISTS time_logs (
+   435→  id                 TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   436→  employee_id        TEXT NOT NULL,
+   437→  project            TEXT NOT NULL DEFAULT '',
+   438→  task               TEXT NOT NULL DEFAULT '',
+   439→  tag                TEXT NOT NULL DEFAULT '',
+   440→  start_time         TIMESTAMP WITH TIME ZONE NOT NULL,
+   441→  end_time           TIMESTAMP WITH TIME ZONE,
+   442→  duration           DOUBLE PRECISION NOT NULL DEFAULT 0,
+   443→  is_verified        BOOLEAN NOT NULL DEFAULT true,
+   444→  verification_method TEXT,
+   445→  idle_flags         INTEGER NOT NULL DEFAULT 0,
+   446→  created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   447→  updated_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   448→
+   449→  CONSTRAINT time_logs_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE
+   450→);
+   451→
+   452→CREATE INDEX IF NOT EXISTS time_logs_employee_id_idx ON time_logs (employee_id);
+   453→CREATE INDEX IF NOT EXISTS time_logs_start_time_idx ON time_logs (start_time);
+   454→CREATE INDEX IF NOT EXISTS time_logs_is_verified_idx ON time_logs (is_verified);
+   455→
+   456→-- ============================================================================
+   457→-- TABLE: verification_records (depends on: users)
+   458→-- ============================================================================
+   459→CREATE TABLE IF NOT EXISTS verification_records (
+   460→  id               TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   461→  user_id          TEXT NOT NULL,
+   462→  video_url        TEXT NOT NULL DEFAULT '',
+   463→  status           TEXT NOT NULL DEFAULT 'pending',
+   464→  reviewed_by      TEXT,
+   465→  rejection_reason TEXT NOT NULL DEFAULT '',
+   466→  submitted_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   467→  created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   468→  updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   469→
+   470→  CONSTRAINT verification_records_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+   471→  CONSTRAINT verification_records_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES users (id)
+   472→);
+   473→
+   474→CREATE INDEX IF NOT EXISTS verification_records_user_id_idx ON verification_records (user_id);
+   475→CREATE INDEX IF NOT EXISTS verification_records_status_idx ON verification_records (status);
+   476→CREATE INDEX IF NOT EXISTS verification_records_reviewed_by_idx ON verification_records (reviewed_by);
+   477→
+   478→-- ============================================================================
+   479→-- TABLE: employee_signatures (depends on: employees, agreement_templates)
+   480→-- ============================================================================
+   481→CREATE TABLE IF NOT EXISTS employee_signatures (
+   482→  id                 TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   483→  employee_id        TEXT NOT NULL,
+   484→  template_id        TEXT NOT NULL,
+   485→  signature_image_url TEXT NOT NULL DEFAULT '',
+   486→  ip_address         TEXT NOT NULL DEFAULT '',
+   487→  signed_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   488→  created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   489→
+   490→  CONSTRAINT employee_signatures_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE,
+   491→  CONSTRAINT employee_signatures_template_id_fkey FOREIGN KEY (template_id) REFERENCES agreement_templates (id)
+   492→);
+   493→
+   494→CREATE INDEX IF NOT EXISTS employee_signatures_employee_id_idx ON employee_signatures (employee_id);
+   495→CREATE INDEX IF NOT EXISTS employee_signatures_template_id_idx ON employee_signatures (template_id);
+   496→
+   497→-- ============================================================================
+   498→-- TABLE: award_points (depends on: employees, users)
+   499→-- ============================================================================
+   500→CREATE TABLE IF NOT EXISTS award_points (
+   501→  id           TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   502→  employee_id  TEXT NOT NULL,
+   503→  points       INTEGER NOT NULL DEFAULT 0,
+   504→  reason       TEXT NOT NULL DEFAULT '',
+   505→  awarded_by   TEXT NOT NULL,
+   506→  target_type  TEXT NOT NULL DEFAULT 'individual',
+   507→  target_ids   TEXT,
+   508→  created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   509→
+   510→  CONSTRAINT award_points_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE,
+   511→  CONSTRAINT award_points_awarded_by_fkey FOREIGN KEY (awarded_by) REFERENCES users (id)
+   512→);
+   513→
+   514→CREATE INDEX IF NOT EXISTS award_points_employee_id_idx ON award_points (employee_id);
+   515→CREATE INDEX IF NOT EXISTS award_points_awarded_by_idx ON award_points (awarded_by);
+   516→
+   517→-- ============================================================================
+   518→-- TABLE: assets (depends on: employees)
+   519→-- ============================================================================
+   520→CREATE TABLE IF NOT EXISTS assets (
+   521→  id            TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+   522→  name          TEXT NOT NULL,
+   523→  serial_number TEXT NOT NULL DEFAULT '',
+   524→  category      TEXT NOT NULL DEFAULT '',
+   525→  condition     TEXT NOT NULL DEFAULT 'new',
+   526→  assigned_to   TEXT,
+   527→  purchase_date TEXT,
+   528→  created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   529→  updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   530→
+   531→  CONSTRAINT assets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES employees (id)
+   532→);
+   533→
+   534→CREATE INDEX IF NOT EXISTS assets_category_idx ON assets (category);
+   535→CREATE INDEX IF NOT EXISTS assets_assigned_to_idx ON assets (assigned_to);
