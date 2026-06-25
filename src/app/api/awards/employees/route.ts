@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       employees.map((e) => ({
         id: e.id,
-        name: e.user.fullName,
+        fullName: e.user.fullName,
         email: e.user.email,
         department: e.department,
       }))

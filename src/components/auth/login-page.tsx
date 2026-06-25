@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,22 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [branding, setBranding] = useState<{logoUrls?: string[]; companyName?: string; primaryColor?: string} | null>(null);
+
+  useEffect(() => {
+    api.get<{logoUrls?: string; companyName?: string; primaryColor?: string}>("/api/branding")
+      .then((data) => {
+        let logoUrls: string[] | undefined;
+        if (data.logoUrls) {
+          try { logoUrls = JSON.parse(data.logoUrls); } catch { logoUrls = undefined; }
+        }
+        setBranding({ ...data, logoUrls });
+      })
+      .catch(() => {});
+  }, []);
+
+  const logoUrl = branding?.logoUrls?.[0];
+  const displayName = branding?.companyName || "EMS";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,10 +75,14 @@ export function LoginPage() {
       <div className="w-full max-w-md relative">
         {/* Logo / Brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4 shadow-lg">
-            <Building2 className="w-8 h-8" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">EMS</h1>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Company logo" className="w-16 h-16 rounded-2xl mb-4 shadow-lg object-cover" />
+          ) : (
+            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4 shadow-lg">
+              <Building2 className="w-8 h-8" />
+            </div>
+          )}
+          <h1 className="text-3xl font-bold tracking-tight">{displayName}</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Employee Management System
           </p>

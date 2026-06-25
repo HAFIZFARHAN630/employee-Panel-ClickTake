@@ -199,6 +199,7 @@ export function ProjectsPage() {
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userSearchResults, setUserSearchResults] = useState<SimpleUser[]>([]);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [selectedEmployeeNames, setSelectedEmployeeNames] = useState<Map<string, string>>(new Map());
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [assigningEmployees, setAssigningEmployees] = useState(false);
 
@@ -433,7 +434,7 @@ export function ProjectsPage() {
     }
     setSearchingUsers(true);
     try {
-      const data = await api.get<SimpleUser[]>("/api/users", { search: query, userType: "employee" });
+      const data = await api.get<SimpleUser[]>("/api/users", { search: query, type: "employee" });
       const users = Array.isArray(data) ? data : [];
       setUserSearchResults(users);
     } catch {
@@ -453,12 +454,14 @@ export function ProjectsPage() {
       return;
     }
     setSelectedEmployeeIds((prev) => [...prev, user.employee!.id]);
+    setSelectedEmployeeNames((prev) => new Map(prev).set(user.employee!.id, user.fullName || user.email));
     setUserSearchQuery("");
     setUserSearchResults([]);
   }
 
   function removeEmployeeFromAssignment(empId: string) {
     setSelectedEmployeeIds((prev) => prev.filter((id) => id !== empId));
+    setSelectedEmployeeNames((prev) => { const m = new Map(prev); m.delete(empId); return m; });
   }
 
   // ============ TAB DEFINITIONS ============
@@ -840,14 +843,14 @@ export function ProjectsPage() {
                 {selectedEmployeeIds.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {selectedEmployeeIds.map((empId) => {
-                      const found = userSearchResults.find((u) => u.employee?.id === empId);
+                      const name = selectedEmployeeNames.get(empId);
                       return (
                         <Badge
                           key={empId}
                           variant="secondary"
                           className="flex items-center gap-1.5 pl-2.5 pr-1 py-1"
                         >
-                          <span className="text-xs">{found?.fullName ?? empId.slice(0, 6)}</span>
+                          <span className="text-xs">{name ?? empId.slice(0, 6)}</span>
                           <button
                             className="h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-muted-foreground/20"
                             onClick={() => removeEmployeeFromAssignment(empId)}

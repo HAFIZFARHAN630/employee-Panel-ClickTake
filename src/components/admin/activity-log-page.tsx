@@ -127,8 +127,8 @@ export function ActivityLogPage() {
           params.section = filter;
         }
 
-        const data = await api.get<ActivityLog[]>("/api/activity-logs", params);
-        const items = Array.isArray(data) ? data : [];
+        const data = await api.get<{ logs: ActivityLog[]; total: number }>("/api/activity-logs", params);
+        const items = Array.isArray(data?.logs) ? data.logs : [];
 
         if (reset) {
           setLogs(items);

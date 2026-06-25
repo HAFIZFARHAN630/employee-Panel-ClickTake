@@ -1,0 +1,891 @@
+     1→"use client";
+     2→
+     3→import React, { useEffect, useState, useCallback } from "react";
+     4→import { api } from "@/lib/api";
+     5→import type { User, UserType } from "@/lib/types";
+     6→import { Card, CardContent } from "@/components/ui/card";
+     7→import { Button } from "@/components/ui/button";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Label } from "@/components/ui/label";
+    10→import { Badge } from "@/components/ui/badge";
+    11→import { Skeleton } from "@/components/ui/skeleton";
+    12→import { Switch } from "@/components/ui/switch";
+    13→import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+    14→import {
+    15→  Table,
+    16→  TableBody,
+    17→  TableCell,
+    18→  TableHead,
+    19→  TableHeader,
+    20→  TableRow,
+    21→} from "@/components/ui/table";
+    22→import {
+    23→  Dialog,
+    24→  DialogContent,
+    25→  DialogHeader,
+    26→  DialogTitle,
+    27→  DialogFooter,
+    28→} from "@/components/ui/dialog";
+    29→import {
+    30→  Select,
+    31→  SelectContent,
+    32→  SelectItem,
+    33→  SelectTrigger,
+    34→  SelectValue,
+    35→} from "@/components/ui/select";
+    36→import {
+    37→  AlertDialog,
+    38→  AlertDialogAction,
+    39→  AlertDialogCancel,
+    40→  AlertDialogContent,
+    41→  AlertDialogDescription,
+    42→  AlertDialogFooter,
+    43→  AlertDialogHeader,
+    44→  AlertDialogTitle,
+    45→  AlertDialogTrigger,
+    46→} from "@/components/ui/alert-dialog";
+    47→import {
+    48→  DropdownMenu,
+    49→  DropdownMenuContent,
+    50→  DropdownMenuItem,
+    51→  DropdownMenuTrigger,
+    52→} from "@/components/ui/dropdown-menu";
+    53→import {
+    54→  Plus,
+    55→  Search,
+    56→  MoreHorizontal,
+    57→  Pencil,
+    58→  Trash2,
+    59→  Users,
+    60→  Filter,
+    61→  X,
+    62→  Clock,
+    63→  Check,
+    64→  UserX,
+    65→  Loader2,
+    66→} from "lucide-react";
+    67→import { toast } from "sonner";
+    68→
+    69→// ============ HELPERS ============
+    70→
+    71→function getInitials(name: string) {
+    72→  return name
+    73→    .split(" ")
+    74→    .map((n) => n[0])
+    75→    .join("")
+    76→    .slice(0, 2)
+    77→    .toUpperCase();
+    78→}
+    79→
+    80→function getUserTypeColor(type: UserType) {
+    81→  const map: Record<UserType, string> = {
+    82→    super_admin: "bg-red-100 text-red-700 border-red-200",
+    83→    admin: "bg-orange-100 text-orange-700 border-orange-200",
+    84→    manager: "bg-blue-100 text-blue-700 border-blue-200",
+    85→    editor: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    86→    viewer: "bg-gray-100 text-gray-600 border-gray-200",
+    87→    employee: "bg-green-100 text-green-700 border-green-200",
+    88→    freelancer: "bg-purple-100 text-purple-700 border-purple-200",
+    89→    client: "bg-cyan-100 text-cyan-700 border-cyan-200",
+    90→  };
+    91→  return map[type] || "bg-gray-100 text-gray-700";
+    92→}
+    93→
+    94→function getUserTypeLabel(type: UserType) {
+    95→  return type.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    96→}
+    97→
+    98→// ============ FORM TYPES ============
+    99→
+   100→interface UserFormData {
+   101→  fullName: string;
+   102→  email: string;
+   103→  password: string;
+   104→  userType: UserType;
+   105→  role: string;
+   106→  isActive: boolean;
+   107→}
+   108→
+   109→const defaultFormData: UserFormData = {
+   110→  fullName: "",
+   111→  email: "",
+   112→  password: "",
+   113→  userType: "employee",
+   114→  role: "",
+   115→  isActive: true,
+   116→};
+   117→
+   118→// ============ TABLE SKELETON ============
+   119→
+   120→function TableSkeleton() {
+   121→  return (
+   122→    <div className="space-y-3">
+   123→      {Array.from({ length: 8 }).map((_, i) => (
+   124→        <div key={i} className="flex items-center gap-4">
+   125→          <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+   126→          <div className="flex-1 space-y-1.5">
+   127→            <Skeleton className="h-4 w-36" />
+   128→            <Skeleton className="h-3 w-48" />
+   129→          </div>
+   130→          <Skeleton className="h-5 w-20" />
+   131→          <Skeleton className="h-5 w-20" />
+   132→          <Skeleton className="h-5 w-16" />
+   133→          <Skeleton className="h-5 w-16" />
+   134→          <Skeleton className="h-8 w-8 rounded" />
+   135→        </div>
+   136→      ))}
+   137→    </div>
+   138→  );
+   139→}
+   140→
+   141→// ============ MAIN COMPONENT ============
+   142→
+   143→export function UsersPage() {
+   144→  // Data state
+   145→  const [users, setUsers] = useState<User[]>([]);
+   146→  const [loading, setLoading] = useState(true);
+   147→  const [totalUsers, setTotalUsers] = useState(0);
+   148→
+   149→  // Filter state
+   150→  const [searchQuery, setSearchQuery] = useState("");
+   151→  const [filterType, setFilterType] = useState<string>("all");
+   152→  const [filterRole, setFilterRole] = useState<string>("all");
+   153→  const [filterStatus, setFilterStatus] = useState<string>("all");
+   154→
+   155→  // Dialog state
+   156→  const [dialogOpen, setDialogOpen] = useState(false);
+   157→  const [editingUser, setEditingUser] = useState<User | null>(null);
+   158→  const [formData, setFormData] = useState<UserFormData>(defaultFormData);
+   159→  const [formErrors, setFormErrors] = useState<Partial<UserFormData>>({});
+   160→  const [submitting, setSubmitting] = useState(false);
+   161→
+   162→  // Delete state
+   163→  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+   164→  const [deleting, setDeleting] = useState(false);
+   165→
+   166→  // Pending approvals state
+   167→  const [pendingUsers, setPendingUsers] = useState<{ id: string; email: string; fullName: string; requestedRole: string | null; createdAt: string }[]>([]);
+   168→  const [pendingLoading, setPendingLoading] = useState(true);
+   169→  const [rejectingId, setRejectingId] = useState<string | null>(null);
+   170→
+   171→  // Pagination
+   172→  const [page, setPage] = useState(1);
+   173→  const pageSize = 20;
+   174→
+   175→  // ============ FETCH ============
+   176→
+   177→  const fetchPendingUsers = useCallback(async () => {
+   178→    setPendingLoading(true);
+   179→    try {
+   180→      const data = await api.get<{ id: string; email: string; fullName: string; requestedRole: string | null; createdAt: string }[]>("/api/auth/pending-approvals");
+   181→      setPendingUsers(data);
+   182→    } catch {
+   183→      setPendingUsers([]);
+   184→    } finally {
+   185→      setPendingLoading(false);
+   186→    }
+   187→  }, []);
+   188→
+   189→  const fetchUsers = useCallback(async () => {
+   190→    setLoading(true);
+   191→    try {
+   192→      const params: Record<string, string> = {
+   193→        page: String(page),
+   194→        limit: String(pageSize),
+   195→      };
+   196→      if (searchQuery) params.search = searchQuery;
+   197→      if (filterType !== "all") params.type = filterType;
+   198→      if (filterRole !== "all") params.role = filterRole;
+   199→      if (filterStatus !== "all") params.status = filterStatus;
+   200→
+   201→      const data = await api.get<User[] | { data: User[]; total: number }>(
+   202→        "/api/users",
+   203→        params
+   204→      );
+   205→
+   206→      if (Array.isArray(data)) {
+   207→        setUsers(data);
+   208→        setTotalUsers(data.length);
+   209→      } else {
+   210→        setUsers(data.data);
+   211→        setTotalUsers(data.total);
+   212→      }
+   213→    } catch {
+   214→      setUsers([]);
+   215→    } finally {
+   216→      setLoading(false);
+   217→    }
+   218→  }, [searchQuery, filterType, filterRole, filterStatus, page]);
+   219→
+   220→  useEffect(() => {
+   221→    fetchUsers();
+   222→  }, [fetchUsers]);
+   223→
+   224→  useEffect(() => {
+   225→    fetchPendingUsers();
+   226→  }, [fetchPendingUsers]);
+   227→
+   228→  // Debounce search
+   229→  useEffect(() => {
+   230→    const timer = setTimeout(() => {
+   231→      setPage(1);
+   232→      fetchUsers();
+   233→    }, 300);
+   234→    return () => clearTimeout(timer);
+   235→  }, [searchQuery]);
+   236→
+   237→  // ============ FORM HANDLERS ============
+   238→
+   239→  function openCreateDialog() {
+   240→    setEditingUser(null);
+   241→    setFormData(defaultFormData);
+   242→    setFormErrors({});
+   243→    setDialogOpen(true);
+   244→  }
+   245→
+   246→  function openEditDialog(user: User) {
+   247→    setEditingUser(user);
+   248→    setFormData({
+   249→      fullName: user.fullName,
+   250→      email: user.email,
+   251→      password: "",
+   252→      userType: user.userType,
+   253→      role: user.role,
+   254→      isActive: user.isActive,
+   255→    });
+   256→    setFormErrors({});
+   257→    setDialogOpen(true);
+   258→  }
+   259→
+   260→  function validateForm(): boolean {
+   261→    const errors: Partial<UserFormData> = {};
+   262→
+   263→    if (!formData.fullName.trim()) errors.fullName = "Name is required";
+   264→    if (!formData.email.trim()) errors.email = "Email is required";
+   265→    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+   266→      errors.email = "Invalid email format";
+   267→    if (!editingUser && !formData.password.trim())
+   268→      errors.password = "Password is required";
+   269→
+   270→    setFormErrors(errors);
+   271→    return Object.keys(errors).length === 0;
+   272→  }
+   273→
+   274→  async function handleSubmit() {
+   275→    if (!validateForm()) return;
+   276→
+   277→    setSubmitting(true);
+   278→    try {
+   279→      if (editingUser) {
+   280→        const body: Record<string, unknown> = {
+   281→          fullName: formData.fullName,
+   282→          email: formData.email,
+   283→          userType: formData.userType,
+   284→          role: formData.role,
+   285→          isActive: formData.isActive,
+   286→        };
+   287→        if (formData.password) body.password = formData.password;
+   288→        await api.put(`/api/users/${editingUser.id}`, body);
+   289→      } else {
+   290→        await api.post("/api/users", formData);
+   291→      }
+   292→      setDialogOpen(false);
+   293→      fetchUsers();
+   294→      toast.success(editingUser ? "User updated" : "User created");
+   295→    } catch (err) {
+   296→      toast.error(err instanceof Error ? err.message : "Failed to save user");
+   297→    } finally {
+   298→      setSubmitting(false);
+   299→    }
+   300→  }
+   301→
+   302→  async function handleDelete() {
+   303→    if (!deletingUser) return;
+   304→    setDeleting(true);
+   305→    try {
+   306→      await api.delete(`/api/users/${deletingUser.id}`);
+   307→      setDeletingUser(null);
+   308→      fetchUsers();
+   309→      toast.success("User deleted");
+   310→    } catch (err) {
+   311→      toast.error(err instanceof Error ? err.message : "Failed to delete user");
+   312→    } finally {
+   313→      setDeleting(false);
+   314→    }
+   315→  }
+   316→
+   317→  async function handleApprove(userId: string) {
+   318→    try {
+   319→      await api.post(`/api/auth/pending-approvals/${userId}?action=approve`);
+   320→      setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
+   321→    } catch {
+   322→      // silently handle
+   323→    }
+   324→  }
+   325→
+   326→  async function handleReject(userId: string) {
+   327→    setRejectingId(userId);
+   328→    try {
+   329→      await fetch(`/api/auth/pending-approvals/${userId}`, {
+   330→        method: "DELETE",
+   331→        headers: { "Content-Type": "application/json", ...(typeof window !== "undefined" ? (() => { const a = localStorage.getItem("ems_auth"); if (a) { try { const p = JSON.parse(a); return { Authorization: `Bearer ${p.token}` }; } catch { return {}; } } return {}; })() : {}) },
+   332→      });
+   333→      setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
+   334→    } catch {
+   335→      // silently handle
+   336→    } finally {
+   337→      setRejectingId(null);
+   338→    }
+   339→  }
+   340→
+   341→  function clearFilters() {
+   342→    setSearchQuery("");
+   343→    setFilterType("all");
+   344→    setFilterRole("all");
+   345→    setFilterStatus("all");
+   346→    setPage(1);
+   347→  }
+   348→
+   349→  const hasFilters = searchQuery || filterType !== "all" || filterRole !== "all" || filterStatus !== "all";
+   350→  const totalPages = Math.ceil(totalUsers / pageSize);
+   351→
+   352→  return (
+   353→    <div className="space-y-6">
+   354→      {/* Header */}
+   355→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   356→        <div>
+   357→          <h2 className="text-xl font-semibold">User Management</h2>
+   358→          <p className="text-sm text-muted-foreground">
+   359→            Manage all users in the system
+   360→          </p>
+   361→        </div>
+   362→        <Button onClick={openCreateDialog} className="shrink-0">
+   363→          <Plus className="h-4 w-4 mr-2" />
+   364→          Add User
+   365→        </Button>
+   366→      </div>
+   367→
+   368→      {/* Pending Approvals */}
+   369→      {pendingLoading ? (
+   370→        <Card className="border-l-4 border-l-yellow-500" style={{ background: "var(--card-gradient-purple, var(--card))" }}>
+   371→          <CardContent className="p-4">
+   372→            <div className="flex items-center gap-3">
+   373→              <Skeleton className="h-5 w-5 rounded" />
+   374→              <Skeleton className="h-5 w-40" />
+   375→              <Skeleton className="h-5 w-5 rounded ml-auto" />
+   376→            </div>
+   377→          </CardContent>
+   378→        </Card>
+   379→      ) : pendingUsers.length > 0 ? (
+   380→        <Card className="border-l-4 border-l-yellow-500 overflow-hidden" style={{ background: "var(--card-gradient-purple, var(--card))" }}>
+   381→          <CardContent className="p-0">
+   382→            <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+   383→              <Clock className="h-4 w-4 text-yellow-500" />
+   384→              <h3 className="text-sm font-semibold">Pending Approvals</h3>
+   385→              <Badge variant="outline" className="text-yellow-600 border-yellow-500/40 bg-yellow-500/10 text-xs">
+   386→                {pendingUsers.length}
+   387→              </Badge>
+   388→            </div>
+   389→            <div className="overflow-x-auto">
+   390→              <Table>
+   391→                <TableHeader>
+   392→                  <TableRow className="bg-muted/30">
+   393→                    <TableHead className="text-xs">Name</TableHead>
+   394→                    <TableHead className="text-xs">Email</TableHead>
+   395→                    <TableHead className="text-xs">Requested Role</TableHead>
+   396→                    <TableHead className="text-xs hidden sm:table-cell">Date Requested</TableHead>
+   397→                    <TableHead className="text-xs text-right">Actions</TableHead>
+   398→                  </TableRow>
+   399→                </TableHeader>
+   400→                <TableBody>
+   401→                  {pendingUsers.map((pu) => (
+   402→                    <TableRow key={pu.id}>
+   403→                      <TableCell className="font-medium text-sm">{pu.fullName}</TableCell>
+   404→                      <TableCell className="text-sm text-muted-foreground">{pu.email}</TableCell>
+   405→                      <TableCell>
+   406→                        <Badge variant="secondary" className="text-xs capitalize">
+   407→                          {pu.requestedRole?.replace("_", " ") || "N/A"}
+   408→                        </Badge>
+   409→                      </TableCell>
+   410→                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
+   411→                        {new Date(pu.createdAt).toLocaleDateString()}
+   412→                      </TableCell>
+   413→                      <TableCell className="text-right">
+   414→                        <div className="flex items-center justify-end gap-1">
+   415→                          <Button
+   416→                            size="sm"
+   417→                            variant="ghost"
+   418→                            className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-500/10"
+   419→                            onClick={() => handleApprove(pu.id)}
+   420→                          >
+   421→                            <Check className="h-4 w-4 mr-1" />
+   422→                            Approve
+   423→                          </Button>
+   424→                          <AlertDialog>
+   425→                            <AlertDialogTrigger asChild>
+   426→                              <Button
+   427→                                size="sm"
+   428→                                variant="ghost"
+   429→                                className="h-7 px-2 text-destructive hover:bg-destructive/10"
+   430→                                disabled={rejectingId === pu.id}
+   431→                              >
+   432→                                {rejectingId === pu.id ? (
+   433→                                  <Loader2 className="h-4 w-4 animate-spin" />
+   434→                                ) : (
+   435→                                  <UserX className="h-4 w-4 mr-1" />
+   436→                                )}
+   437→                                Reject
+   438→                              </Button>
+   439→                            </AlertDialogTrigger>
+   440→                            <AlertDialogContent>
+   441→                              <AlertDialogHeader>
+   442→                                <AlertDialogTitle>Reject Registration?</AlertDialogTitle>
+   443→                                <AlertDialogDescription>
+   444→                                  Are you sure you want to reject <strong>{pu.fullName}</strong> ({pu.email})? This will permanently delete their account.
+   445→                                </AlertDialogDescription>
+   446→                              </AlertDialogHeader>
+   447→                              <AlertDialogFooter>
+   448→                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+   449→                                <AlertDialogAction
+   450→                                  onClick={() => handleReject(pu.id)}
+   451→                                  className="bg-destructive text-white hover:bg-destructive/90"
+   452→                                >
+   453→                                  Delete Account
+   454→                                </AlertDialogAction>
+   455→                              </AlertDialogFooter>
+   456→                            </AlertDialogContent>
+   457→                          </AlertDialog>
+   458→                        </div>
+   459→                      </TableCell>
+   460→                    </TableRow>
+   461→                  ))}
+   462→                </TableBody>
+   463→              </Table>
+   464→            </div>
+   465→          </CardContent>
+   466→        </Card>
+   467→      ) : null}
+   468→
+   469→      {/* Filters */}
+   470→      <Card>
+   471→        <CardContent className="p-4">
+   472→          <div className="flex flex-col sm:flex-row gap-3">
+   473→            <div className="relative flex-1">
+   474→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   475→              <Input
+   476→                placeholder="Search by name or email..."
+   477→                value={searchQuery}
+   478→                onChange={(e) => setSearchQuery(e.target.value)}
+   479→                className="pl-9"
+   480→              />
+   481→            </div>
+   482→            <Select value={filterType} onValueChange={setFilterType}>
+   483→              <SelectTrigger className="w-full sm:w-36">
+   484→                <SelectValue placeholder="User Type" />
+   485→              </SelectTrigger>
+   486→              <SelectContent>
+   487→                <SelectItem value="all">All Types</SelectItem>
+   488→                <SelectItem value="admin">Admin</SelectItem>
+   489→                <SelectItem value="manager">Manager</SelectItem>
+   490→                <SelectItem value="employee">Employee</SelectItem>
+   491→                <SelectItem value="freelancer">Freelancer</SelectItem>
+   492→                <SelectItem value="client">Client</SelectItem>
+   493→              </SelectContent>
+   494→            </Select>
+   495→            <Select value={filterRole} onValueChange={setFilterRole}>
+   496→              <SelectTrigger className="w-full sm:w-36">
+   497→                <SelectValue placeholder="Role" />
+   498→              </SelectTrigger>
+   499→              <SelectContent>
+   500→                <SelectItem value="all">All Roles</SelectItem>
+   501→                <SelectItem value="admin">Admin</SelectItem>
+   502→                <SelectItem value="manager">Manager</SelectItem>
+   503→                <SelectItem value="employee">Employee</SelectItem>
+   504→                <SelectItem value="viewer">Viewer</SelectItem>
+   505→              </SelectContent>
+   506→            </Select>
+   507→            <Select value={filterStatus} onValueChange={setFilterStatus}>
+   508→              <SelectTrigger className="w-full sm:w-36">
+   509→                <SelectValue placeholder="Status" />
+   510→              </SelectTrigger>
+   511→              <SelectContent>
+   512→                <SelectItem value="all">All Status</SelectItem>
+   513→                <SelectItem value="active">Active</SelectItem>
+   514→                <SelectItem value="inactive">Inactive</SelectItem>
+   515→              </SelectContent>
+   516→            </Select>
+   517→            {hasFilters && (
+   518→              <Button
+   519→                variant="ghost"
+   520→                size="icon"
+   521→                onClick={clearFilters}
+   522→                className="shrink-0"
+   523→                title="Clear filters"
+   524→              >
+   525→                <X className="h-4 w-4" />
+   526→              </Button>
+   527→            )}
+   528→          </div>
+   529→        </CardContent>
+   530→      </Card>
+   531→
+   532→      {/* Users Table */}
+   533→      <Card>
+   534→        <CardContent className="p-0">
+   535→          <div className="overflow-x-auto">
+   536→            <Table>
+   537→              <TableHeader>
+   538→                <TableRow className="sticky top-0 bg-background">
+   539→                  <TableHead className="w-[240px]">User</TableHead>
+   540→                  <TableHead className="hidden md:table-cell">Email</TableHead>
+   541→                  <TableHead>User Type</TableHead>
+   542→                  <TableHead className="hidden sm:table-cell">Role</TableHead>
+   543→                  <TableHead className="hidden lg:table-cell">Department</TableHead>
+   544→                  <TableHead>Status</TableHead>
+   545→                  <TableHead className="w-[50px]">Actions</TableHead>
+   546→                </TableRow>
+   547→              </TableHeader>
+   548→              <TableBody>
+   549→                {loading ? (
+   550→                  <TableRow>
+   551→                    <TableCell colSpan={7}>
+   552→                      <div className="py-8 px-4">
+   553→                        <TableSkeleton />
+   554→                      </div>
+   555→                    </TableCell>
+   556→                  </TableRow>
+   557→                ) : users.length === 0 ? (
+   558→                  <TableRow>
+   559→                    <TableCell colSpan={7}>
+   560→                      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+   561→                        <Users className="h-12 w-12 mb-3 opacity-30" />
+   562→                        <p className="text-sm font-medium">No users found</p>
+   563→                        <p className="text-xs mt-1">
+   564→                          {hasFilters
+   565→                            ? "Try adjusting your filters"
+   566→                            : "Click 'Add User' to create one"}
+   567→                        </p>
+   568→                      </div>
+   569→                    </TableCell>
+   570→                  </TableRow>
+   571→                ) : (
+   572→                  users.map((user) => (
+   573→                    <TableRow key={user.id} className="group">
+   574→                      <TableCell>
+   575→                        <div className="flex items-center gap-3">
+   576→                          <Avatar className="h-8 w-8">
+   577→                            {user.avatarUrl && (
+   578→                              <AvatarImage
+   579→                                src={user.avatarUrl}
+   580→                                alt={user.fullName}
+   581→                              />
+   582→                            )}
+   583→                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+   584→                              {getInitials(user.fullName)}
+   585→                            </AvatarFallback>
+   586→                          </Avatar>
+   587→                          <div className="min-w-0">
+   588→                            <p className="text-sm font-medium truncate">
+   589→                              {user.fullName}
+   590→                            </p>
+   591→                            <p className="text-xs text-muted-foreground truncate md:hidden">
+   592→                              {user.email}
+   593→                            </p>
+   594→                          </div>
+   595→                        </div>
+   596→                      </TableCell>
+   597→                      <TableCell className="hidden md:table-cell">
+   598→                        <span className="text-sm text-muted-foreground truncate">
+   599→                          {user.email}
+   600→                        </span>
+   601→                      </TableCell>
+   602→                      <TableCell>
+   603→                        <Badge
+   604→                          className={`text-[10px] ${getUserTypeColor(user.userType)}`}
+   605→                        >
+   606→                          {getUserTypeLabel(user.userType)}
+   607→                        </Badge>
+   608→                      </TableCell>
+   609→                      <TableCell className="hidden sm:table-cell">
+   610→                        <Badge variant="outline" className="text-[10px] capitalize">
+   611→                          {user.role}
+   612→                        </Badge>
+   613→                      </TableCell>
+   614→                      <TableCell className="hidden lg:table-cell">
+   615→                        <span className="text-sm text-muted-foreground">
+   616→                          {user.employee?.department || "—"}
+   617→                        </span>
+   618→                      </TableCell>
+   619→                      <TableCell>
+   620→                        <Badge
+   621→                          variant={user.isActive ? "default" : "secondary"}
+   622→                          className={`text-[10px] ${
+   623→                            user.isActive
+   624→                              ? "bg-green-100 text-green-700 hover:bg-green-100"
+   625→                              : "bg-gray-100 text-gray-500 hover:bg-gray-100"
+   626→                          }`}
+   627→                        >
+   628→                          {user.isActive ? "Active" : "Inactive"}
+   629→                        </Badge>
+   630→                      </TableCell>
+   631→                      <TableCell>
+   632→                        <DropdownMenu>
+   633→                          <DropdownMenuTrigger asChild>
+   634→                            <Button
+   635→                              variant="ghost"
+   636→                              size="icon"
+   637→                              className="h-8 w-8"
+   638→                            >
+   639→                              <MoreHorizontal className="h-4 w-4" />
+   640→                              <span className="sr-only">Actions</span>
+   641→                            </Button>
+   642→                          </DropdownMenuTrigger>
+   643→                          <DropdownMenuContent align="end">
+   644→                            <DropdownMenuItem
+   645→                              onClick={() => openEditDialog(user)}
+   646→                            >
+   647→                              <Pencil className="h-4 w-4 mr-2" />
+   648→                              Edit
+   649→                            </DropdownMenuItem>
+   650→                            <DropdownMenuItem
+   651→                              onClick={() => setDeletingUser(user)}
+   652→                              className="text-destructive focus:text-destructive"
+   653→                            >
+   654→                              <Trash2 className="h-4 w-4 mr-2" />
+   655→                              Delete
+   656→                            </DropdownMenuItem>
+   657→                          </DropdownMenuContent>
+   658→                        </DropdownMenu>
+   659→                      </TableCell>
+   660→                    </TableRow>
+   661→                  ))
+   662→                )}
+   663→              </TableBody>
+   664→            </Table>
+   665→          </div>
+   666→
+   667→          {/* Pagination */}
+   668→          {!loading && users.length > 0 && totalPages > 1 && (
+   669→            <div className="flex items-center justify-between border-t px-4 py-3">
+   670→              <p className="text-sm text-muted-foreground">
+   671→                Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalUsers)} of{" "}
+   672→                {totalUsers}
+   673→              </p>
+   674→              <div className="flex items-center gap-1">
+   675→                <Button
+   676→                  variant="outline"
+   677→                  size="sm"
+   678→                  disabled={page === 1}
+   679→                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+   680→                >
+   681→                  Previous
+   682→                </Button>
+   683→                {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+   684→                  const p = i + 1;
+   685→                  return (
+   686→                    <Button
+   687→                      key={p}
+   688→                      variant={p === page ? "default" : "outline"}
+   689→                      size="sm"
+   690→                      className="w-8 h-8 p-0"
+   691→                      onClick={() => setPage(p)}
+   692→                    >
+   693→                      {p}
+   694→                    </Button>
+   695→                  );
+   696→                })}
+   697→                <Button
+   698→                  variant="outline"
+   699→                  size="sm"
+   700→                  disabled={page === totalPages}
+   701→                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+   702→                >
+   703→                  Next
+   704→                </Button>
+   705→              </div>
+   706→            </div>
+   707→          )}
+   708→        </CardContent>
+   709→      </Card>
+   710→
+   711→      {/* Add/Edit User Dialog */}
+   712→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   713→        <DialogContent className="sm:max-w-md">
+   714→          <DialogHeader>
+   715→            <DialogTitle>
+   716→              {editingUser ? "Edit User" : "Add New User"}
+   717→            </DialogTitle>
+   718→          </DialogHeader>
+   719→
+   720→          <div className="space-y-4 py-2">
+   721→            <div className="space-y-2">
+   722→              <Label htmlFor="fullName">Full Name</Label>
+   723→              <Input
+   724→                id="fullName"
+   725→                placeholder="Enter full name"
+   726→                value={formData.fullName}
+   727→                onChange={(e) =>
+   728→                  setFormData((f) => ({ ...f, fullName: e.target.value }))
+   729→                }
+   730→              />
+   731→              {formErrors.fullName && (
+   732→                <p className="text-xs text-destructive">{formErrors.fullName}</p>
+   733→              )}
+   734→            </div>
+   735→
+   736→            <div className="space-y-2">
+   737→              <Label htmlFor="email">Email</Label>
+   738→              <Input
+   739→                id="email"
+   740→                type="email"
+   741→                placeholder="Enter email address"
+   742→                value={formData.email}
+   743→                onChange={(e) =>
+   744→                  setFormData((f) => ({ ...f, email: e.target.value }))
+   745→                }
+   746→              />
+   747→              {formErrors.email && (
+   748→                <p className="text-xs text-destructive">{formErrors.email}</p>
+   749→              )}
+   750→            </div>
+   751→
+   752→            <div className="space-y-2">
+   753→              <Label htmlFor="password">
+   754→                Password {editingUser ? "(leave blank to keep)" : ""}
+   755→              </Label>
+   756→              <Input
+   757→                id="password"
+   758→                type="password"
+   759→                placeholder={
+   760→                  editingUser
+   761→                    ? "Leave blank to keep current password"
+   762→                    : "Enter password"
+   763→                }
+   764→                value={formData.password}
+   765→                onChange={(e) =>
+   766→                  setFormData((f) => ({ ...f, password: e.target.value }))
+   767→                }
+   768→              />
+   769→              {formErrors.password && (
+   770→                <p className="text-xs text-destructive">{formErrors.password}</p>
+   771→              )}
+   772→            </div>
+   773→
+   774→            <div className="grid grid-cols-2 gap-4">
+   775→              <div className="space-y-2">
+   776→                <Label>User Type</Label>
+   777→                <Select
+   778→                  value={formData.userType}
+   779→                  onValueChange={(v) =>
+   780→                    setFormData((f) => ({ ...f, userType: v as UserType }))
+   781→                  }
+   782→                >
+   783→                  <SelectTrigger>
+   784→                    <SelectValue />
+   785→                  </SelectTrigger>
+   786→                  <SelectContent>
+   787→                    <SelectItem value="admin">Admin</SelectItem>
+   788→                    <SelectItem value="manager">Manager</SelectItem>
+   789→                    <SelectItem value="employee">Employee</SelectItem>
+   790→                    <SelectItem value="freelancer">Freelancer</SelectItem>
+   791→                    <SelectItem value="client">Client</SelectItem>
+   792→                  </SelectContent>
+   793→                </Select>
+   794→              </div>
+   795→
+   796→              <div className="space-y-2">
+   797→                <Label>Role</Label>
+   798→                <Select
+   799→                  value={formData.role}
+   800→                  onValueChange={(v) =>
+   801→                    setFormData((f) => ({ ...f, role: v }))
+   802→                  }
+   803→                >
+   804→                  <SelectTrigger>
+   805→                    <SelectValue placeholder="Select role" />
+   806→                  </SelectTrigger>
+   807→                  <SelectContent>
+   808→                    <SelectItem value="admin">Admin</SelectItem>
+   809→                    <SelectItem value="manager">Manager</SelectItem>
+   810→                    <SelectItem value="employee">Employee</SelectItem>
+   811→                    <SelectItem value="viewer">Viewer</SelectItem>
+   812→                  </SelectContent>
+   813→                </Select>
+   814→              </div>
+   815→            </div>
+   816→
+   817→            <div className="flex items-center justify-between rounded-lg border p-3">
+   818→              <div>
+   819→                <Label htmlFor="isActive" className="text-sm font-medium">
+   820→                  Active Status
+   821→                </Label>
+   822→                <p className="text-xs text-muted-foreground">
+   823→                  {formData.isActive
+   824→                    ? "User can log in and access the system"
+   825→                    : "User account is suspended"}
+   826→                </p>
+   827→              </div>
+   828→              <Switch
+   829→                id="isActive"
+   830→                checked={formData.isActive}
+   831→                onCheckedChange={(checked) =>
+   832→                  setFormData((f) => ({ ...f, isActive: checked }))
+   833→                }
+   834→              />
+   835→            </div>
+   836→          </div>
+   837→
+   838→          <DialogFooter>
+   839→            <Button
+   840→              variant="outline"
+   841→              onClick={() => setDialogOpen(false)}
+   842→              disabled={submitting}
+   843→            >
+   844→              Cancel
+   845→            </Button>
+   846→            <Button onClick={handleSubmit} disabled={submitting}>
+   847→              {submitting
+   848→                ? "Saving..."
+   849→                : editingUser
+   850→                  ? "Save Changes"
+   851→                  : "Create User"}
+   852→            </Button>
+   853→          </DialogFooter>
+   854→        </DialogContent>
+   855→      </Dialog>
+   856→
+   857→      {/* Delete Confirmation */}
+   858→      <AlertDialog
+   859→        open={!!deletingUser}
+   860→        onOpenChange={(open) => !open && setDeletingUser(null)}
+   861→      >
+   862→        <AlertDialogContent>
+   863→          <AlertDialogHeader>
+   864→            <AlertDialogTitle>Delete User</AlertDialogTitle>
+   865→            <AlertDialogDescription>
+   866→              Are you sure you want to delete{" "}
+   867→              <span className="font-medium text-foreground">
+   868→                {deletingUser?.fullName}
+   869→              </span>
+   870→              ? This action cannot be undone. All associated data will be
+   871→              permanently removed.
+   872→            </AlertDialogDescription>
+   873→          </AlertDialogHeader>
+   874→          <AlertDialogFooter>
+   875→            <AlertDialogCancel disabled={deleting}>
+   876→              Cancel
+   877→            </AlertDialogCancel>
+   878→            <AlertDialogAction
+   879→              onClick={handleDelete}
+   880→              disabled={deleting}
+   881→              className="bg-destructive text-white hover:bg-destructive/90"
+   882→            >
+   883→              {deleting ? "Deleting..." : "Delete"}
+   884→            </AlertDialogAction>
+   885→          </AlertDialogFooter>
+   886→        </AlertDialogContent>
+   887→      </AlertDialog>
+   888→    </div>
+   889→  );
+   890→}
+   891→

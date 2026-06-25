@@ -43,6 +43,7 @@ import {
   Download,
   RotateCcw,
   Save,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -84,6 +85,10 @@ export function SettingsPage() {
   const [pushNotifs, setPushNotifs] = useState(true);
   const [inAppNotifs, setInAppNotifs] = useState(true);
 
+  // General/Notification saving
+  const [generalSaving, setGeneralSaving] = useState(false);
+  const [notifSaving, setNotifSaving] = useState(false);
+
   // Danger zone
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -120,6 +125,44 @@ export function SettingsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setSessionSaving(false);
+    }
+  };
+
+  const saveGeneralSettings = async () => {
+    try {
+      setGeneralSaving(true);
+      await api.put("/api/settings", {
+        companyName,
+        timezone,
+        dateFormat,
+        emailNotifs,
+        pushNotifs,
+        inAppNotifs,
+      });
+      toast.success("General settings saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setGeneralSaving(false);
+    }
+  };
+
+  const saveNotificationSettings = async () => {
+    try {
+      setNotifSaving(true);
+      await api.put("/api/settings", {
+        companyName,
+        timezone,
+        dateFormat,
+        emailNotifs,
+        pushNotifs,
+        inAppNotifs,
+      });
+      toast.success("Notification settings saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setNotifSaving(false);
     }
   };
 
@@ -301,6 +344,17 @@ export function SettingsPage() {
             </div>
           </div>
         </CardContent>
+        <Separator />
+        <CardFooter className="justify-end pt-4">
+          <Button onClick={saveGeneralSettings} disabled={generalSaving}>
+            {generalSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {generalSaving ? "Saving..." : "Save Changes"}
+          </Button>
+        </CardFooter>
       </Card>
 
       {/* Notification Settings Card */}
@@ -358,6 +412,17 @@ export function SettingsPage() {
             />
           </div>
         </CardContent>
+        <Separator />
+        <CardFooter className="justify-end pt-4">
+          <Button onClick={saveNotificationSettings} disabled={notifSaving}>
+            {notifSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {notifSaving ? "Saving..." : "Save Changes"}
+          </Button>
+        </CardFooter>
       </Card>
 
       {/* Danger Zone Card */}

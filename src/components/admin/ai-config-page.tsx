@@ -94,7 +94,7 @@ export function AIConfigPage() {
   const fetchConfigs = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<AIModelConfig[]>("/api/ai-config");
+      const data = await api.get<AIModelConfig[]>("/api/ai-models");
       setConfigs(data);
     } catch {
       toast.error("Failed to load AI model configurations");
@@ -139,10 +139,10 @@ export function AIConfigPage() {
     try {
       setSaving(true);
       if (editingConfig) {
-        await api.put(`/api/ai-config/${editingConfig.id}`, form);
+        await api.put(`/api/ai-models/${editingConfig.id}`, form);
         toast.success("AI model config updated");
       } else {
-        await api.post("/api/ai-config", form);
+        await api.post("/api/ai-models", form);
         toast.success("AI model config created");
       }
       setDialogOpen(false);
@@ -157,7 +157,7 @@ export function AIConfigPage() {
   const handleDelete = async () => {
     if (!deletingConfig) return;
     try {
-      await api.delete(`/api/ai-config/${deletingConfig.id}`);
+      await api.delete(`/api/ai-models/${deletingConfig.id}`);
       toast.success("AI model config deleted");
       setDeleteDialogOpen(false);
       setDeletingConfig(null);
@@ -169,7 +169,7 @@ export function AIConfigPage() {
 
   const handleToggleActive = async (config: AIModelConfig) => {
     try {
-      await api.patch(`/api/ai-config/${config.id}`, { isActive: !config.isActive });
+      await api.patch(`/api/ai-models/${config.id}`, { isActive: !config.isActive });
       toast.success(config.isActive ? "Model deactivated" : "Model activated");
       fetchConfigs();
     } catch {

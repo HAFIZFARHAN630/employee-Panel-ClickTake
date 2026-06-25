@@ -326,10 +326,7 @@ export function UsersPage() {
   async function handleReject(userId: string) {
     setRejectingId(userId);
     try {
-      await fetch(`/api/auth/pending-approvals/${userId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", ...(typeof window !== "undefined" ? (() => { const a = localStorage.getItem("ems_auth"); if (a) { try { const p = JSON.parse(a); return { Authorization: `Bearer ${p.token}` }; } catch { return {}; } } return {}; })() : {}) },
-      });
+      await api.delete(`/api/auth/pending-approvals/${userId}`);
       setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
     } catch {
       // silently handle

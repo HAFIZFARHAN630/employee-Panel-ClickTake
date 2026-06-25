@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     }
 
     const pendingUsers = await db.user.findMany({
-      where: { isActive: false },
+      where: { isActive: false, requestedRole: { not: null } },
       select: {
         id: true,
         email: true,

@@ -46,7 +46,7 @@ interface BrandingFormState {
   officeLocations: { address: string; lat: string; lng: string }[];
   contactEmails: string[];
   contactPhones: string[];
-  socialMedia: { facebook: string; twitter: string; linkedin: string };
+  socialMedia: { facebook: string; twitter: string; linkedin: string; instagram: string; youtube: string; github: string };
   primaryColor: string;
   secondaryColor: string;
 }
@@ -56,7 +56,7 @@ const defaultForm: BrandingFormState = {
   officeLocations: [{ address: "", lat: "", lng: "" }],
   contactEmails: [""],
   contactPhones: [""],
-  socialMedia: { facebook: "", twitter: "", linkedin: "" },
+  socialMedia: { facebook: "", twitter: "", linkedin: "", instagram: "", youtube: "", github: "" },
   primaryColor: "#E0197A",
   secondaryColor: "#7B2FBE",
 };
@@ -85,7 +85,7 @@ export function BrandingPage() {
         contactPhones: parseJsonString<string>(data.contactPhones).length > 0
           ? parseJsonString<string>(data.contactPhones)
           : [""],
-        socialMedia: parseJsonObject<{ facebook: string; twitter: string; linkedin: string }>(data.socialMediaLinks),
+        socialMedia: { facebook: "", twitter: "", linkedin: "", instagram: "", youtube: "", github: "", ...parseJsonObject<Record<string, string>>(data.socialMediaLinks) },
         primaryColor: data.primaryColor || "#E0197A",
         secondaryColor: data.secondaryColor || "#7B2FBE",
       });
@@ -457,6 +457,39 @@ export function BrandingPage() {
                   setForm({ ...form, socialMedia: { ...form.socialMedia, linkedin: e.target.value } })
                 }
                 placeholder="https://linkedin.com/company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-instagram">Instagram</Label>
+              <Input
+                id="social-instagram"
+                value={form.socialMedia.instagram}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, instagram: e.target.value } })
+                }
+                placeholder="https://instagram.com/company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-youtube">YouTube</Label>
+              <Input
+                id="social-youtube"
+                value={form.socialMedia.youtube}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, youtube: e.target.value } })
+                }
+                placeholder="https://youtube.com/company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-github">GitHub</Label>
+              <Input
+                id="social-github"
+                value={form.socialMedia.github}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, github: e.target.value } })
+                }
+                placeholder="https://github.com/company"
               />
             </div>
           </div>
