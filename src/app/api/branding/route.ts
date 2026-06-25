@@ -48,11 +48,11 @@ export async function PUT(req: NextRequest) {
     let settings = await db.brandingSettings.findFirst();
 
     const data = {
-      ...(body.logoUrls !== undefined && { logoUrls: JSON.stringify(body.logoUrls) }),
-      ...(body.officeLocations !== undefined && { officeLocations: JSON.stringify(body.officeLocations) }),
-      ...(body.contactEmails !== undefined && { contactEmails: JSON.stringify(body.contactEmails) }),
-      ...(body.contactPhones !== undefined && { contactPhones: JSON.stringify(body.contactPhones) }),
-      ...(body.socialMediaLinks !== undefined && { socialMediaLinks: JSON.stringify(body.socialMediaLinks) }),
+      ...(body.logoUrls !== undefined && { logoUrls: typeof body.logoUrls === "string" ? body.logoUrls : JSON.stringify(body.logoUrls) }),
+      ...(body.officeLocations !== undefined && { officeLocations: typeof body.officeLocations === "string" ? body.officeLocations : JSON.stringify(body.officeLocations) }),
+      ...(body.contactEmails !== undefined && { contactEmails: typeof body.contactEmails === "string" ? body.contactEmails : JSON.stringify(body.contactEmails) }),
+      ...(body.contactPhones !== undefined && { contactPhones: typeof body.contactPhones === "string" ? body.contactPhones : JSON.stringify(body.contactPhones) }),
+      ...(body.socialMediaLinks !== undefined && { socialMediaLinks: typeof body.socialMediaLinks === "string" ? body.socialMediaLinks : JSON.stringify(body.socialMediaLinks) }),
       ...(body.primaryColor !== undefined && { primaryColor: body.primaryColor }),
       ...(body.secondaryColor !== undefined && { secondaryColor: body.secondaryColor }),
     };

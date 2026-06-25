@@ -52,8 +52,13 @@ function getStatusBadge(isActive: boolean) {
   );
 }
 
-function parseList(str: string): string[] {
-  if (!str.trim()) return [];
+function parseList(val: string | unknown): string[] {
+  const str = typeof val === "string" ? val : JSON.stringify(val || []);
+  if (!str.trim() || str === "[]") return [];
+  try {
+    const parsed = JSON.parse(str);
+    if (Array.isArray(parsed)) return parsed.map(String);
+  } catch { /* not JSON, treat as comma-separated */ }
   return str.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
@@ -116,8 +121,8 @@ export function AgreementsPage() {
     setForm({
       title: agreement.title,
       content: agreement.content,
-      applicableRoles: agreement.applicableRoles,
-      applicableDepartments: agreement.applicableDepartments,
+      applicableRoles: parseList(agreement.applicableRoles).join(", "),
+      applicableDepartments: parseList(agreement.applicableDepartments).join(", "),
       version: agreement.version,
       isActive: agreement.isActive,
     });

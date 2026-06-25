@@ -64,6 +64,7 @@ import {
   UserX,
   Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 // ============ HELPERS ============
 
@@ -290,8 +291,9 @@ export function UsersPage() {
       }
       setDialogOpen(false);
       fetchUsers();
-    } catch {
-      // silently handle error
+      toast.success(editingUser ? "User updated" : "User created");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save user");
     } finally {
       setSubmitting(false);
     }
@@ -304,8 +306,9 @@ export function UsersPage() {
       await api.delete(`/api/users/${deletingUser.id}`);
       setDeletingUser(null);
       fetchUsers();
-    } catch {
-      // silently handle error
+      toast.success("User deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete user");
     } finally {
       setDeleting(false);
     }

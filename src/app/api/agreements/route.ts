@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       templates.map((t) => ({
         ...t,
-        applicableRoles: JSON.parse(t.applicableRoles),
-        applicableDepartments: JSON.parse(t.applicableDepartments),
+        applicableRoles: t.applicableRoles,
+        applicableDepartments: t.applicableDepartments,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
       }))
@@ -38,12 +38,20 @@ export async function POST(req: NextRequest) {
 
     if (!title) return NextResponse.json({ message: "Title is required" }, { status: 400 });
 
+    // Convert comma-separated strings to JSON arrays for storage
+    const rolesArr = typeof applicableRoles === "string"
+      ? applicableRoles.split(",").map((s: string) => s.trim()).filter(Boolean)
+      : Array.isArray(applicableRoles) ? applicableRoles : [];
+    const deptsArr = typeof applicableDepartments === "string"
+      ? applicableDepartments.split(",").map((s: string) => s.trim()).filter(Boolean)
+      : Array.isArray(applicableDepartments) ? applicableDepartments : [];
+
     const template = await db.agreementTemplate.create({
       data: {
         title,
         content: content || "",
-        applicableRoles: JSON.stringify(applicableRoles || []),
-        applicableDepartments: JSON.stringify(applicableDepartments || []),
+        applicableRoles: JSON.stringify(rolesArr),
+        applicableDepartments: JSON.stringify(deptsArr),
         version: version || "1.0",
         isActive: isActive !== false,
       },
