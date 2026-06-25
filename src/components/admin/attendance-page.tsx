@@ -21,6 +21,7 @@ import {
   CalendarIcon,
   LogIn,
   LogOut,
+  MapPin,
 } from "lucide-react";
 import { format, isToday, parseISO, startOfDay, endOfDay } from "date-fns";
 
@@ -210,6 +211,7 @@ export function AttendancePage() {
                   <TableHead>Check Out</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden md:table-cell">Hours</TableHead>
+                  <TableHead className="hidden lg:table-cell">Location</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -217,7 +219,7 @@ export function AttendancePage() {
                 {recordsLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 7 }).map((_, j) => (
+                      {Array.from({ length: 8 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-16" />
                         </TableCell>
@@ -226,7 +228,7 @@ export function AttendancePage() {
                   ))
                 ) : records.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No attendance records found
                     </TableCell>
                   </TableRow>
@@ -257,6 +259,28 @@ export function AttendancePage() {
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                           {record.hours > 0 ? `${record.hours.toFixed(1)}h` : "—"}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {record.isLocationVerified ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 dark:bg-green-950/50 dark:text-green-400 px-2 py-0.5 rounded-full border border-green-200 dark:border-green-800">
+                              🟢 Verified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 dark:bg-red-950/50 dark:text-red-400 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-800" title="GPS denied or out of bounds">
+                              🔴 Unverified
+                            </span>
+                          )}
+                          {record.latitude != null && record.longitude != null && (
+                            <a
+                              href={`https://www.google.com/maps?q=${record.latitude},${record.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-1.5 inline-flex text-muted-foreground hover:text-primary"
+                              title="View on Google Maps"
+                            >
+                              <MapPin className="h-3 w-3" />
+                            </a>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

@@ -59,7 +59,20 @@ import {
   DollarSign,
   ListTodo,
   Inbox,
+  Trash2,
+  Copy,
+  UserPlus,
+  Check,
 } from "lucide-react";
+
+import { toast } from "sonner";
+
+interface SimpleUser {
+  id: string;
+  fullName: string;
+  email: string;
+  employee?: { id: string } | null;
+}
 
 // ============ HELPERS ============
 
@@ -182,6 +195,17 @@ export function ProjectsPage() {
   // Generate tasks state
   const [generatingTasks, setGeneratingTasks] = useState<string | null>(null);
 
+  // User search state for multi-employee assignment
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<SimpleUser[]>([]);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [assigningEmployees, setAssigningEmployees] = useState(false);
+
+  // Delete state
+  const [deletingProject, setDeletingProject] = useState<string | null>(null);
+  const [duplicatingProject, setDuplicatingProject] = useState<string | null>(null);
+
   // ============ FETCH ============
 
   const fetchProjects = useCallback(async () => {
@@ -255,14 +279,33 @@ export function ProjectsPage() {
       if (editingProject) {
         await api.put(`/api/projects/${editingProject.id}`, formData);
       } else {
-        await api.post("/api/projects", formData);
+        const newProject = await api.post<Project>("/api/projects", formData);
+
+        // Create assignments for selected employees
+        if (selectedEmployeeIds.length > 0 && newProject?.id) {
+          setAssigningEmployees(true);
+          await Promise.all(
+            selectedEmployeeIds.map((empId) =>
+              api.post("/api/assignments", {
+                employeeId: empId,
+                projectId: newProject.id,
+                status: "accepted",
+              }).catch(() => {
+                // Silently fail individual assignment errors
+              })
+            )
+          );
+          setAssigningEmployees(false);
+        }
       }
       setFormDialogOpen(false);
+      setSelectedEmployeeIds([]);
       fetchProjects();
     } catch {
       // silently handle
     } finally {
       setSubmitting(false);
+      setAssigningEmployees(false);
     }
   }
 
@@ -349,6 +392,73 @@ export function ProjectsPage() {
     } finally {
       setGeneratingTasks(null);
     }
+  }
+
+  // ============ DELETE / DUPLICATE ============
+
+  async function handleDeleteProject(projectId: string) {
+    if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
+    setDeletingProject(projectId);
+    try {
+      await api.delete(`/api/projects/${projectId}`);
+      toast.success("Project deleted successfully");
+      fetchProjects();
+    } catch {
+      toast.error("Failed to delete project");
+    } finally {
+      setDeletingProject(null);
+    }
+  }
+
+  async function handleDuplicateProject(projectId: string) {
+    setDuplicatingProject(projectId);
+    try {
+      await api.post(`/api/projects/${projectId}/duplicate`);
+      toast.success("Project duplicated successfully");
+      fetchProjects();
+    } catch {
+      toast.error("Failed to duplicate project");
+    } finally {
+      setDuplicatingProject(null);
+    }
+  }
+
+  // ============ USER SEARCH FOR ASSIGNMENT ============
+
+  async function searchUsers(query: string) {
+    setUserSearchQuery(query);
+    if (query.length < 2) {
+      setUserSearchResults([]);
+      return;
+    }
+    setSearchingUsers(true);
+    try {
+      const data = await api.get<SimpleUser[]>("/api/users", { search: query, userType: "employee" });
+      const users = Array.isArray(data) ? data : [];
+      setUserSearchResults(users);
+    } catch {
+      setUserSearchResults([]);
+    } finally {
+      setSearchingUsers(false);
+    }
+  }
+
+  function addEmployeeToAssignment(user: SimpleUser) {
+    if (!user.employee?.id) {
+      toast.error("This user has no employee record");
+      return;
+    }
+    if (selectedEmployeeIds.includes(user.employee.id)) {
+      toast.error("Already added");
+      return;
+    }
+    setSelectedEmployeeIds((prev) => [...prev, user.employee!.id]);
+    setUserSearchQuery("");
+    setUserSearchResults([]);
+  }
+
+  function removeEmployeeFromAssignment(empId: string) {
+    setSelectedEmployeeIds((prev) => prev.filter((id) => id !== empId));
   }
 
   // ============ TAB DEFINITIONS ============
@@ -534,16 +644,37 @@ export function ProjectsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
-                  disabled={generatingTasks === project.id}
-                  onClick={() => handleGenerateTasks(project)}
+                  onClick={() => openEditDialog(project)}
                 >
-                  {generatingTasks === project.id ? (
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDuplicateProject(project.id)}
+                  disabled={duplicatingProject === project.id}
+                >
+                  {duplicatingProject === project.id ? (
                     <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                   ) : (
-                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
                   )}
-                  Generate Tasks
+                  Duplicate
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => handleDeleteProject(project.id)}
+                  disabled={deletingProject === project.id}
+                >
+                  {deletingProject === project.id ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Delete
                 </Button>
               </CardFooter>
             </Card>
@@ -672,6 +803,64 @@ export function ProjectsPage() {
                 />
               </div>
             </div>
+
+            {/* Multi-Employee Assignment (only on create) */}
+            {!editingProject && (
+              <div className="space-y-3">
+                <Label>Assign Employees</Label>
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Search employees by name or email..."
+                      value={userSearchQuery}
+                      onChange={(e) => searchUsers(e.target.value)}
+                      className="flex-1"
+                    />
+                    {searchingUsers && (
+                      <Loader2 className="h-4 w-4 animate-spin mt-3 absolute right-3 top-0" />
+                    )}
+                  </div>
+                  {userSearchResults.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 w-full border rounded-lg bg-popover shadow-md max-h-48 overflow-y-auto">
+                      {userSearchResults.map((u) => (
+                        <button
+                          key={u.id}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left transition-colors"
+                          onClick={() => addEmployeeToAssignment(u)}
+                          disabled={!u.employee?.id}
+                        >
+                          <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-medium">{u.fullName}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">{u.email}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedEmployeeIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedEmployeeIds.map((empId) => {
+                      const found = userSearchResults.find((u) => u.employee?.id === empId);
+                      return (
+                        <Badge
+                          key={empId}
+                          variant="secondary"
+                          className="flex items-center gap-1.5 pl-2.5 pr-1 py-1"
+                        >
+                          <span className="text-xs">{found?.fullName ?? empId.slice(0, 6)}</span>
+                          <button
+                            className="h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-muted-foreground/20"
+                            onClick={() => removeEmployeeFromAssignment(empId)}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -682,9 +871,11 @@ export function ProjectsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleFormSubmit} disabled={submitting}>
-              {submitting
-                ? "Saving..."
+            <Button onClick={handleFormSubmit} disabled={submitting || assigningEmployees}>
+              {submitting || assigningEmployees
+                ? assigningEmployees
+                  ? "Creating & Assigning..."
+                  : "Saving..."
                 : editingProject
                   ? "Save Changes"
                   : "Create Project"}

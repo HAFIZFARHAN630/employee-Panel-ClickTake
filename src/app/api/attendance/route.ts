@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, queryParams } from "@/lib/auth-middleware";
 
+// ============ HAVERSINE FORMULA ============
+function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -71,7 +91,7 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { employeeId, action } = body;
+    const { employeeId, action, latitude, longitude } = body;
 
     if (!employeeId || !action) {
       return NextResponse.json({ message: "employeeId and action are required" }, { status: 400 });
@@ -84,6 +104,41 @@ export async function POST(req: NextRequest) {
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
+    // Determine location verification
+    let isLocationVerified = false;
+    const lat: number | null = latitude != null ? Number(latitude) : null;
+    const lng: number | null = longitude != null ? Number(longitude) : null;
+
+    if (lat !== null && lng !== null) {
+      // Fetch session settings for geo-fence config
+      try {
+        const settings = await db.sessionSettings.findFirst({
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (settings) {
+          const officeLat = settings.officeLat ?? 0;
+          const officeLng = settings.officeLng ?? 0;
+          const allowedRadius = settings.allowedRadiusMeters ?? 500;
+
+          // If office coords are (0,0), no geo-fence configured — auto-verify
+          if (officeLat === 0 && officeLng === 0) {
+            isLocationVerified = true;
+          } else {
+            const distance = haversineDistance(lat, lng, officeLat, officeLng);
+            isLocationVerified = distance <= allowedRadius;
+          }
+        } else {
+          // No settings found, default to verified if coords provided
+          isLocationVerified = true;
+        }
+      } catch {
+        // If settings fetch fails, verify if coords are present
+        isLocationVerified = true;
+      }
+    }
+    // If lat/lng are null, isLocationVerified stays false — but DO NOT block punch-in
 
     let record = await db.attendance.findFirst({
       where: {
@@ -110,6 +165,9 @@ export async function POST(req: NextRequest) {
           date: today,
           checkIn: today,
           status,
+          latitude: lat,
+          longitude: lng,
+          isLocationVerified,
         },
         include: {
           employee: {
@@ -140,6 +198,13 @@ export async function POST(req: NextRequest) {
           checkOut: today,
           hours,
           status: hours < 4 ? "half_day" : record.status,
+          // Update location on check-out if provided
+          ...(lat !== null ? { latitude: lat } : {}),
+          ...(lng !== null ? { longitude: lng } : {}),
+          // If new coords provided and not previously verified, re-check
+          ...(lat !== null && lng !== null && !record.isLocationVerified
+            ? { isLocationVerified }
+            : {}),
         },
         include: {
           employee: {

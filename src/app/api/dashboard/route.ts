@@ -22,13 +22,29 @@ export async function GET(req: NextRequest) {
       totalEmployees,
       activeProjects,
       pendingLeaves,
+      unverifiedFaces,
       presentToday,
       weeklyTimeResult,
       completedTasks,
     ] = await Promise.all([
-      db.employee.count(),
+      // Count users where userType='employee' and isActive=true
+      db.user.count({
+        where: {
+          userType: "employee",
+          isActive: true,
+        },
+      }),
+      // Count projects where status='active'
       db.project.count({ where: { status: "active" } }),
+      // Count leave requests where status='pending'
       db.leaveRequest.count({ where: { status: "pending" } }),
+      // Count users where isFaceVerified=false
+      db.user.count({
+        where: {
+          userType: "employee",
+          isFaceVerified: false,
+        },
+      }),
       db.attendance.count({
         where: {
           date: { gte: startOfDay, lte: endOfDay },
@@ -49,6 +65,7 @@ export async function GET(req: NextRequest) {
       totalEmployees,
       activeProjects,
       pendingLeaves,
+      unverifiedFaces,
       presentToday,
       totalHoursThisWeek: Math.round((weeklyTimeResult._sum.duration || 0) * 100) / 100,
       completedTasks,

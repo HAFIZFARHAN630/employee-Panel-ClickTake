@@ -286,15 +286,15 @@ export function TimeTrackingPage() {
               <Select
                 value={selectedProject}
                 onValueChange={setSelectedProject}
-                disabled={isRunning}
+                disabled={isRunning || assignments.length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
+                  <SelectValue placeholder={assignments.length === 0 ? "Loading projects..." : "Select project"} />
                 </SelectTrigger>
                 <SelectContent>
                   {assignments.map((a) => (
                     <SelectItem key={a.projectId} value={a.projectId}>
-                      {a.project?.name}
+                      {a.project?.name ?? "Select project..."}
                     </SelectItem>
                   ))}
                 </SelectContent>

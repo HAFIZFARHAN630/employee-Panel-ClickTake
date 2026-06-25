@@ -94,21 +94,19 @@ interface StatCardProps {
   value: number | string;
   icon: React.ElementType;
   trend: string;
-  color: string;
+  gradient: string;
 }
 
-function StatCard({ title, value, icon: Icon, trend, color }: StatCardProps) {
+function StatCard({ title, value, icon: Icon, trend, gradient }: StatCardProps) {
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className={`hover:shadow-md transition-shadow ${gradient}`}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="text-2xl font-bold">{value}</p>
           </div>
-          <div
-            className={`flex h-12 w-12 items-center justify-center rounded-lg ${color}`}
-          >
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-[#E0197A] to-[#7B2FBE]">
             <Icon className="h-6 w-6 text-white" />
           </div>
         </div>
@@ -255,28 +253,28 @@ export function DashboardPage() {
             value={stats?.totalEmployees ?? 0}
             icon={Users}
             trend="+12% from last week"
-            color="bg-blue-500"
+            gradient="bg-gradient-to-br from-[#E0197A]/10 to-[#E0197A]/5 border border-[#E0197A]/20"
           />
           <StatCard
             title="Active Projects"
             value={stats?.activeProjects ?? 0}
             icon={FolderKanban}
             trend="+8% from last month"
-            color="bg-purple-500"
+            gradient="bg-gradient-to-br from-[#7B2FBE]/10 to-[#7B2FBE]/5 border border-[#7B2FBE]/20"
           />
           <StatCard
             title="Pending Leaves"
             value={stats?.pendingLeaves ?? 0}
             icon={CalendarOff}
             trend="-3% from last week"
-            color="bg-orange-500"
+            gradient="bg-gradient-to-br from-[#4A90D9]/10 to-[#4A90D9]/5 border border-[#4A90D9]/20"
           />
           <StatCard
-            title="Present Today"
-            value={stats?.presentToday ?? 0}
+            title="Pending Verifications"
+            value={stats?.unverifiedFaces ?? 0}
             icon={UserCheck}
-            trend="+5% from yesterday"
-            color="bg-green-500"
+            trend="Needs attention"
+            gradient="bg-gradient-to-br from-[#F59E0B]/10 to-[#F59E0B]/5 border border-[#F59E0B]/20"
           />
         </div>
       )}

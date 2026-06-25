@@ -82,7 +82,7 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground">
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-[#E0197A] to-[#7B2FBE] text-white">
           <Building2 className="w-5 h-5" />
         </div>
         <div>
@@ -108,11 +108,11 @@ function SidebarContent({
                 onClick={() => onNavigate(item.id)}
                 className={`
                   flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium
-                  transition-colors cursor-pointer text-left w-full
+                  transition-colors cursor-pointer text-left w-full border
                   ${
                     isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
+                      ? "bg-[#E0197A]/15 text-[#E0197A] border border-[#E0197A]/20"
+                      : "text-muted-foreground hover:bg-[#7B2FBE]/10 border border-transparent"
                   }
                 `}
               >
@@ -129,7 +129,7 @@ function SidebarContent({
       <div className="px-3 py-3">
         <div className="flex items-center gap-3 px-3 py-2">
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+            <AvatarFallback className="text-xs bg-gradient-to-br from-[#E0197A] to-[#7B2FBE] text-white">
               {userFullName
                 .split(" ")
                 .map((n) => n[0])
@@ -233,7 +233,7 @@ export function EmployeeLayout() {
                 aria-label="User menu"
               >
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                  <AvatarFallback className="text-xs bg-gradient-to-br from-[#E0197A] to-[#7B2FBE] text-white">
                     {userFullName
                       .split(" ")
                       .map((n) => n[0])

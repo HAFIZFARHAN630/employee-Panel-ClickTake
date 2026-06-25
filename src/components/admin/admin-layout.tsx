@@ -5,15 +5,23 @@ import { useAuth } from "@/lib/auth-context";
 import type { AdminPage } from "@/lib/types";
 import { DashboardPage } from "./dashboard-page";
 import { UsersPage } from "./users-page";
+import { AwardsPage } from "./awards-page";
+import { AssetsPage } from "./assets-page";
 import { ProjectsPage } from "./projects-page";
 import { AssignmentsPage } from "./assignments-page";
 import { AttendancePage } from "./attendance-page";
+import { ShiftsPage } from "./shifts-page";
 import { LeavesPage } from "./leaves-page";
 import { TimeTrackingPage } from "./time-tracking-page";
 import { NotificationsPage } from "./notifications-page";
 import { AnnouncementsPage } from "./announcements-page";
 import { RBACPage } from "./rbac-page";
+import { AIConfigPage } from "./ai-config-page";
+import { HRTrainingPage } from "./hr-training-page";
 import { ActivityLogPage } from "./activity-log-page";
+import { VerificationPage } from "./verification-page";
+import { AgreementsPage } from "./agreements-page";
+import { BrandingPage } from "./branding-page";
 import { SettingsPage } from "./settings-page";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -41,15 +49,23 @@ import {
   CalendarCheck,
   CalendarOff,
   Clock,
+  Timer,
   Bell,
   Megaphone,
   Shield,
+  ScrollText,
   FileText,
   Settings,
   Menu,
   LogOut,
   User,
   Building2,
+  ScanFace,
+  Trophy,
+  Package,
+  Brain,
+  GraduationCap,
+  Palette,
 } from "lucide-react";
 
 interface NavItem {
@@ -61,15 +77,23 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "users", label: "Users", icon: Users },
+  { id: "awards", label: "Awards", icon: Trophy },
+  { id: "assets", label: "Assets", icon: Package },
   { id: "projects", label: "Projects", icon: FolderKanban },
   { id: "assignments", label: "Assignments", icon: UserCheck },
   { id: "attendance", label: "Attendance", icon: CalendarCheck },
+  { id: "shifts", label: "Shifts", icon: Clock },
   { id: "leaves", label: "Leave Management", icon: CalendarOff },
-  { id: "time-tracking", label: "Time Tracking", icon: Clock },
+  { id: "time-tracking", label: "Time Tracking", icon: Timer },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "rbac", label: "RBAC", icon: Shield },
-  { id: "activity-log", label: "Activity Log", icon: FileText },
+  { id: "ai-config", label: "AI Config", icon: Brain },
+  { id: "hr-training", label: "HR Training", icon: GraduationCap },
+  { id: "activity-log", label: "Activity Log", icon: ScrollText },
+  { id: "verification", label: "Verification", icon: ScanFace },
+  { id: "agreements", label: "Agreements", icon: FileText },
+  { id: "branding", label: "Branding", icon: Palette },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -286,15 +310,23 @@ export function AdminLayout() {
         <main className="flex-1 p-4 lg:p-6">
           {adminPage === "dashboard" && <DashboardPage />}
           {adminPage === "users" && <UsersPage />}
+          {adminPage === "awards" && <AwardsPage />}
+          {adminPage === "assets" && <AssetsPage />}
           {adminPage === "projects" && <ProjectsPage />}
           {adminPage === "assignments" && <AssignmentsPage />}
           {adminPage === "attendance" && <AttendancePage />}
+          {adminPage === "shifts" && <ShiftsPage />}
           {adminPage === "leaves" && <LeavesPage />}
           {adminPage === "time-tracking" && <TimeTrackingPage />}
           {adminPage === "notifications" && <NotificationsPage />}
           {adminPage === "announcements" && <AnnouncementsPage />}
           {adminPage === "rbac" && <RBACPage />}
+          {adminPage === "ai-config" && <AIConfigPage />}
+          {adminPage === "hr-training" && <HRTrainingPage />}
           {adminPage === "activity-log" && <ActivityLogPage />}
+          {adminPage === "verification" && <VerificationPage />}
+          {adminPage === "agreements" && <AgreementsPage />}
+          {adminPage === "branding" && <BrandingPage />}
           {adminPage === "settings" && <SettingsPage />}
         </main>
       </div>

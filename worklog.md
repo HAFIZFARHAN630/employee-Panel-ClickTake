@@ -158,3 +158,79 @@ Stage Summary:
 - Zero ESLint errors
 - All API endpoints verified working
 - Login flow verified for all user types
+
+---
+Task ID: 10
+Agent: Main Developer
+Task: Phase 10 - Schema Sync, Type Updates, Bug Fixes, Feature Additions
+
+Work Log:
+- Updated src/lib/types.ts: Added designation/hourlyRate to Employee, isFaceVerified to User, actionUrl/scheduledAt/expiresAt to Notification, targetRoles/targetDepartments to Announcement, isDuplicateOf/department to Project, phase/estimatedHours/assignedTo to ProjectTask, latitude/longitude/isLocationVerified to Attendance, isVerified/verificationMethod/idleFlags to TimeLog. Added 9 new types: AgreementTemplate, EmployeeSignature, VerificationRecord, Shift, AwardPoint, Asset, BrandingSettings, AIModelConfig, HRTrainingData. Removed `role` from Employee. Added unverifiedFaces to DashboardStats.
+- Updated admin attendance-page.tsx: Added Location column with 🟢 Verified / 🔴 Unverified badges and Google Maps link per record
+- Updated admin dashboard-page.tsx: Applied pink/purple/blue/amber gradient scheme to 4 stat cards. Changed 4th card from "Present Today" to "Pending Verifications" (unverifiedFaces)
+- Updated employee attendance-page.tsx: Added navigator.geolocation.getCurrentPosition with .catch() fallback for GPS on check-in/out. Shows warning toast "Punched in successfully, but location could not be verified." when GPS fails. Sends latitude/longitude to API. Added Location column to history table with ✅/⚠️ badges
+- Updated employee time-tracking-page.tsx: Added fallback placeholder "Loading projects..." when assignments not loaded, disabled dropdown when empty
+- Updated admin projects-page.tsx: Added Edit, Duplicate, Delete action buttons to each project card. Added multi-employee assignment searchable dropdown in create dialog. Duplicate calls POST /api/projects/{id}/duplicate. Delete calls DELETE /api/projects/{id}. After create, assigns selected employees via POST /api/assignments
+- Updated /api/attendance/route.ts: Added Haversine formula for GPS distance calculation. Accepts latitude/longitude (nullable). Fetches SessionSettings for office coordinates. Sets isLocationVerified based on geo-fence radius (or true if no geo-fence configured). If lat/lng null, sets isLocationVerified=false but does NOT block punch-in
+- Updated /api/dashboard/route.ts: totalEmployees now counts users where userType='employee' and isActive=true. Added unverifiedFaces counting users where isFaceVerified=false
+- Updated employee-layout.tsx: Applied pink/purple gradient theme - logo icon uses bg-gradient-to-br from-[#E0197A] to-[#7B2FBE], active nav items use bg-[#E0197A]/15 text-[#E0197A] border border-[#E0197A]/20, hover uses hover:bg-[#7B2FBE]/10, avatar fallbacks use bg-gradient-to-br from-[#E0197A] to-[#7B2FBE] text-white
+
+Stage Summary:
+- All TypeScript types aligned with Prisma schema (24 models)
+- GPS-based attendance with graceful fallback (no hard GPS requirement)
+- Admin dashboard with branded gradient stat cards
+- Project management with Edit/Delete/Duplicate actions
+- Multi-employee assignment during project creation
+- Employee layout with consistent pink/purple branding
+- Zero ESLint errors, clean compilation
+---
+Task ID: 9
+Agent: Main Architect
+Task: Phase 9 - 8 New Admin Page Components & Layout Integration
+
+Work Log:
+- Updated AdminPage type in /src/lib/types.ts to add 8 new page identifiers: verification, shifts, awards, assets, ai-config, hr-training, branding, agreements
+- Created /src/components/admin/verification-page.tsx: Face verification grid with status badges (🟢/🟡/🔴), video review dialog with approve/reject actions, reject reason textarea
+- Created /src/components/admin/shifts-page.tsx: Shift management table with CRUD operations, time inputs, radio group for applicable type (office/dept/individual), multi-assign for dept/individual, active toggle per row
+- Created /src/components/admin/awards-page.tsx: Award form with radio for target type (individual/team/department/all), employee select dropdown, points input, reason textarea; history table below
+- Created /src/components/admin/assets-page.tsx: Asset table with condition badges (new/good/fair/poor/damaged), create/edit dialog with all fields, delete with AlertDialog confirmation
+- Created /src/components/admin/ai-config-page.tsx: AI model config table with provider badges (OpenAI/Gemini), password input for API key with show/hide toggle, active switch
+- Created /src/components/admin/hr-training-page.tsx: HR training Q&A table with line-clamp-2 answers, category badges (policy/onboarding/benefits/conduct/safety), search input for filtering, create/edit/delete
+- Created /src/components/admin/branding-page.tsx: Branding settings with dynamic lists (logos, locations, emails, phones) with add/remove, social media inputs, color pickers with native input[type=color]
+- Created /src/components/admin/agreements-page.tsx: Agreement templates table with status badge, version, role/dept badges, create/edit dialog with content textarea, comma-separated roles/depts input
+- Updated /src/components/admin/admin-layout.tsx: Added all 8 component imports, 6 new lucide-react icons (ScanFace, Trophy, Package, Brain, GraduationCap, Palette), relocated Clock→Shifts and FileText→Agreements, moved Timer→TimeTracking and ScrollText→ActivityLog to free up icons, grouped nav items logically (Awards/Assets near Users, Shifts near Attendance, Verification/Agreements/Branding near Settings)
+
+Stage Summary:
+- 8 fully functional admin page components created with consistent patterns
+- All pages include: "use client" directive, API client imports, shadcn/ui components, lucide-react icons, sonner toasts, date-fns
+- All pages feature: header with icon, loading skeletons, empty states, responsive design
+- ScrollArea with max-h-96 used for long lists
+- Named exports used throughout (e.g., export function VerificationPage)
+- AdminPage union type extended with 8 new values
+- Admin sidebar updated with 20 total navigation items in logical groupings
+- ESLint clean, dev server compiles successfully
+
+---
+Task ID: 10
+Agent: Main Architect
+Task: Phase 1-8 - Complete System Upgrade (Schema, Theme, APIs, Pages)
+
+Work Log:
+- Updated Prisma schema with 8 new tables: AgreementTemplate, EmployeeSignature, VerificationRecord, Shift, AwardPoint, Asset, BrandingSettings, AIModelConfig, HRTrainingData
+- Added missing fields to existing tables: isFaceVerified (User), designation/hourlyRate (Employee), isLocationVerified/latitude/longitude (Attendance), isVerified/verificationMethod/idleFlags (TimeLog), actionUrl/scheduledAt/expiresAt (Notification), targetRoles/targetDepartments (Announcement), phase/estimatedHours/assignedTo (ProjectTask), isDuplicateOf/department (Project), country/region/timezone (Tenant), geo-fence fields (SessionSettings)
+- Pushed schema to SQLite DB with Prisma
+- Rewrote globals.css with exact dark/light color variables (Dark: bg #03000D/#070018/#0D0025, pink #E0197A, purple #7B2FBE, blue #4A90D9; Light: bg #FFFFFF/#F8F9FA/#E9ECEF, pink #D1176A, purple #6A28A8, blue #3A7FCA)
+- Created 22 new API routes: agreements (CRUD + my + sign), verification (list + upload + action), shifts (CRUD), awards (list + assign + employees), assets (CRUD), branding (get + put), ai-models (CRUD), hr-training (CRUD), hr-chat, salary-calc, time-tracking/stats, attendance/export
+- Built 8 new admin pages: VerificationPage, ShiftsPage, AwardsPage, AssetsPage, AIConfigPage, HRTrainingPage, BrandingPage, AgreementsPage
+- Updated admin-layout.tsx with 8 new nav items and page imports
+- Updated types.ts with all new interfaces
+- Updated existing pages: dashboard gradients, attendance GPS badges, employee GPS graceful fallback, project duplicate/edit/delete actions, time tracking project fallback
+- Zero ESLint errors, dev server compiles cleanly
+
+Stage Summary:
+- Full schema upgrade with 27 total tables
+- 22 new API routes covering all new features
+- 8 new admin pages with full CRUD
+- Theme engine with exact pink/purple color scheme
+- GPS graceful fallback for attendance
+- Ready for GitHub push and Firebase deployment

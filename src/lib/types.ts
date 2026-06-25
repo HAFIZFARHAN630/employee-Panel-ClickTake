@@ -10,6 +10,7 @@ export interface User {
   role: string;
   isActive: boolean;
   isSuperuser: boolean;
+  isFaceVerified: boolean;
   avatarUrl: string | null;
   tenantId: string | null;
   createdAt: string;
@@ -29,7 +30,8 @@ export interface Employee {
   id: string;
   userId: string;
   department: string;
-  role: string;
+  designation: string;
+  hourlyRate: number | null;
   facePhotoUrls: string;
 }
 
@@ -53,6 +55,8 @@ export interface Project {
   progress: number;
   budget: number;
   tags: string;
+  department: string;
+  isDuplicateOf: string | null;
   tenantId: string | null;
   createdById: string | null;
   ownerId: string | null;
@@ -68,6 +72,9 @@ export interface ProjectTask {
   title: string;
   description: string;
   isCompleted: boolean;
+  phase: string;
+  estimatedHours: number | null;
+  assignedTo: string | null;
   sortOrder: number;
 }
 
@@ -112,6 +119,9 @@ export interface Attendance {
   checkOut: string | null;
   status: AttendanceStatus;
   hours: number;
+  latitude: number | null;
+  longitude: number | null;
+  isLocationVerified: boolean;
   employee?: { user: { fullName: string; email: string } };
 }
 
@@ -124,6 +134,9 @@ export interface TimeLog {
   startTime: string;
   endTime: string | null;
   duration: number;
+  isVerified: boolean;
+  verificationMethod: string | null;
+  idleFlags: number;
   employee?: { user: { fullName: string; email: string } };
 }
 
@@ -133,7 +146,9 @@ export interface Notification {
   message: string;
   notificationType: string;
   isRead: boolean;
-  link: string;
+  actionUrl: string | null;
+  scheduledAt: string | null;
+  expiresAt: string | null;
   createdAt: string;
 }
 
@@ -149,6 +164,8 @@ export interface Announcement {
   status: AnnouncementStatus;
   expiresAt: string | null;
   createdById: string | null;
+  targetRoles: string;
+  targetDepartments: string;
   createdAt: string;
   createdBy?: { fullName: string };
 }
@@ -168,6 +185,9 @@ export interface SessionSettings {
   id: string;
   timeTrackingTimeoutMinutes: number;
   timeTrackingWarningMinutes: number;
+  officeLat: number;
+  officeLng: number;
+  allowedRadiusMeters: number;
 }
 
 export interface ActivityLog {
@@ -180,12 +200,121 @@ export interface ActivityLog {
   createdAt: string;
 }
 
+// ============ NEW TYPES ============
+
+export interface AgreementTemplate {
+  id: string;
+  title: string;
+  content: string;
+  applicableRoles: string;
+  applicableDepartments: string;
+  version: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeSignature {
+  id: string;
+  employeeId: string;
+  templateId: string;
+  signatureImageUrl: string;
+  ipAddress: string;
+  signedAt: string;
+  createdAt: string;
+}
+
+export interface VerificationRecord {
+  id: string;
+  userId: string;
+  videoUrl: string;
+  status: string;
+  reviewedBy: string | null;
+  rejectionReason: string;
+  submittedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+}
+
+export interface Shift {
+  id: string;
+  name: string;
+  type: string;
+  startTime: string;
+  endTime: string;
+  applicableType: string;
+  applicableIds: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AwardPoint {
+  id: string;
+  employeeId: string;
+  points: number;
+  reason: string;
+  awardedById: string;
+  targetType: string;
+  targetIds: string | null;
+  createdAt: string;
+  employee?: Employee & { user: User };
+}
+
+export interface Asset {
+  id: string;
+  name: string;
+  serialNumber: string;
+  category: string;
+  condition: string;
+  assignedTo: string | null;
+  purchaseDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignee?: Employee & { user: User };
+}
+
+export interface BrandingSettings {
+  id: string;
+  logoUrls: string;
+  officeLocations: string;
+  contactEmails: string;
+  contactPhones: string;
+  socialMediaLinks: string;
+  primaryColor: string;
+  secondaryColor: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIModelConfig {
+  id: string;
+  modelName: string;
+  provider: string;
+  apiKey: string;
+  purpose: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HRTrainingData {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ============ DASHBOARD STATS ============
 
 export interface DashboardStats {
   totalEmployees: number;
   activeProjects: number;
   pendingLeaves: number;
+  unverifiedFaces: number;
   presentToday: number;
   totalHoursThisWeek: number;
   completedTasks: number;
@@ -220,7 +349,15 @@ export type AdminPage =
   | "announcements"
   | "rbac"
   | "settings"
-  | "activity-log";
+  | "activity-log"
+  | "verification"
+  | "shifts"
+  | "awards"
+  | "assets"
+  | "ai-config"
+  | "hr-training"
+  | "branding"
+  | "agreements";
 
 export type EmployeePage =
   | "overview"

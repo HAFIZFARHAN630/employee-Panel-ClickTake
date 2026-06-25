@@ -124,9 +124,36 @@ export function AttendancePage() {
   const handleCheckIn = async () => {
     if (!employeeId) return;
     setActionLoading(true);
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+    let gpsFailed = false;
+
     try {
-      await api.post("/api/attendance", { employeeId, action: "checkIn" });
-      toast.success("Checked in successfully");
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        });
+      });
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
+    } catch {
+      gpsFailed = true;
+    }
+
+    try {
+      await api.post("/api/attendance", {
+        employeeId,
+        action: "checkIn",
+        latitude,
+        longitude,
+      });
+      if (gpsFailed) {
+        toast.warning("Punched in successfully, but location could not be verified.");
+      } else {
+        toast.success("Checked in successfully");
+      }
       fetchAttendance();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Check-in failed");
@@ -138,8 +165,30 @@ export function AttendancePage() {
   const handleCheckOut = async () => {
     if (!employeeId) return;
     setActionLoading(true);
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+
     try {
-      await api.post("/api/attendance", { employeeId, action: "checkOut" });
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        });
+      });
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
+    } catch {
+      // GPS optional for check-out
+    }
+
+    try {
+      await api.post("/api/attendance", {
+        employeeId,
+        action: "checkOut",
+        latitude,
+        longitude,
+      });
       toast.success("Checked out successfully");
       fetchAttendance();
     } catch (err: unknown) {
@@ -295,6 +344,7 @@ export function AttendancePage() {
                     <TableHead>Check In</TableHead>
                     <TableHead>Check Out</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead className="text-right">Hours</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -315,6 +365,17 @@ export function AttendancePage() {
                           : "—"}
                       </TableCell>
                       <TableCell>{statusBadge(record.status)}</TableCell>
+                      <TableCell>
+                        {record.isLocationVerified ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 dark:bg-green-950/50 dark:text-green-400 px-2 py-0.5 rounded-full">
+                            ✅ Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                            ⚠️ Unverified
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-medium">
                         {record.hours > 0 ? `${record.hours.toFixed(1)}h` : "—"}
                       </TableCell>
