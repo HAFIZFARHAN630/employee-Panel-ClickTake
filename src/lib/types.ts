@@ -12,6 +12,7 @@ export interface User {
   isSuperuser: boolean;
   isFaceVerified: boolean;
   avatarUrl: string | null;
+  requestedRole: string | null;
   tenantId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -334,7 +335,7 @@ export interface AuthResponse {
 
 // ============ VIEW STATE ============
 
-export type AppView = "login" | "signup" | "admin" | "employee";
+export type AppView = "login" | "signup" | "forgot-password" | "reset-password" | "admin" | "employee";
 
 export type AdminPage = 
   | "dashboard"

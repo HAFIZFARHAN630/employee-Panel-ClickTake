@@ -8,12 +8,16 @@ export interface AuthResult {
   isSuperuser: boolean;
 }
 
-// Simple in-memory token store (shared with login route via import)
+// Single source of truth for the in-memory token store
 const tokenStore = new Map<string, { userId: string; email: string }>();
 
-// This is exported so login route can register tokens
 export function getTokenStore() {
   return tokenStore;
+}
+
+// Verify token directly here — avoids Turbopack cross-module instance issues
+export function verifyToken(token: string) {
+  return tokenStore.get(token) || null;
 }
 
 export async function authenticate(req: Request): Promise<AuthResult | NextResponse> {
@@ -23,10 +27,6 @@ export async function authenticate(req: Request): Promise<AuthResult | NextRespo
   }
 
   const token = authHeader.replace("Bearer ", "");
-
-  // For simplicity, we verify token by looking up the user
-  // In production, this would use proper JWT verification
-  const { verifyToken } = await import("@/app/api/auth/login/route");
   const tokenData = verifyToken(token);
   if (!tokenData) {
     return NextResponse.json({ message: "Invalid token" }, { status: 401 });

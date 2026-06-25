@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Eye, EyeOff, Building2, ShieldCheck } from "lucide-react";
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, setAppView } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -22,9 +23,15 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (!success) {
-        setError("Invalid email or password. Please try again.");
+      const result = await login(email, password);
+      if (!result.success) {
+        if (result.message === "ACCOUNT_PENDING_APPROVAL") {
+          setError(
+            "Your account is pending admin approval. Please wait for an email."
+          );
+        } else {
+          setError("Invalid email or password. Please try again.");
+        }
       }
       // On success, auth-context handles persistAuth(user, token) and appView routing
     } catch {
@@ -37,7 +44,11 @@ export function LoginPage() {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/40 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/40 p-4 relative">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
       {/* Subtle decorative background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
@@ -129,7 +140,30 @@ export function LoginPage() {
                   "Sign In"
                 )}
               </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setAppView("forgot-password")}
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </form>
+
+            <div className="text-center text-sm">
+              <span className="text-muted-foreground">
+                Don&apos;t have an account?{" "}
+              </span>
+              <button
+                type="button"
+                onClick={() => setAppView("signup")}
+                className="text-primary hover:underline font-medium"
+              >
+                Sign Up
+              </button>
+            </div>
           </CardContent>
         </Card>
 

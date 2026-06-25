@@ -30,13 +30,15 @@ async function main() {
 
   // Create Users
   const users = [
-    { email: "admin@techcorp.com", password: "admin123", fullName: "Sarah Johnson", userType: "admin", role: "admin", isSuperuser: true, tenantId: tenant.id },
-    { email: "manager@techcorp.com", password: "manager123", fullName: "Michael Chen", userType: "manager", role: "manager", tenantId: tenant.id },
-    { email: "employee@techcorp.com", password: "emp123", fullName: "Emily Rodriguez", userType: "employee", role: "employee", tenantId: tenant.id },
-    { email: "john@techcorp.com", password: "john123", fullName: "John Smith", userType: "employee", role: "employee", tenantId: tenant.id },
-    { email: "alice@techcorp.com", password: "alice123", fullName: "Alice Wang", userType: "employee", role: "employee", tenantId: tenant.id },
-    { email: "bob@techcorp.com", password: "bob123", fullName: "Bob Taylor", userType: "freelancer", role: "freelancer", tenantId: tenant.id },
-    { email: "client@techcorp.com", password: "client123", fullName: "David Wilson", userType: "client", role: "client", tenantId: tenant.id },
+    { email: "admin@techcorp.com", password: "admin123", fullName: "Sarah Johnson", userType: "admin", role: "admin", isSuperuser: true, isActive: true, tenantId: tenant.id },
+    { email: "manager@techcorp.com", password: "manager123", fullName: "Michael Chen", userType: "manager", role: "manager", isActive: true, tenantId: tenant.id },
+    { email: "employee@techcorp.com", password: "emp123", fullName: "Emily Rodriguez", userType: "employee", role: "employee", isActive: true, tenantId: tenant.id },
+    { email: "john@techcorp.com", password: "john123", fullName: "John Smith", userType: "employee", role: "employee", isActive: true, tenantId: tenant.id },
+    { email: "alice@techcorp.com", password: "alice123", fullName: "Alice Wang", userType: "employee", role: "employee", isActive: true, tenantId: tenant.id },
+    { email: "bob@techcorp.com", password: "bob123", fullName: "Bob Taylor", userType: "freelancer", role: "freelancer", isActive: true, tenantId: tenant.id },
+    { email: "client@techcorp.com", password: "client123", fullName: "David Wilson", userType: "client", role: "client", isActive: true, tenantId: tenant.id },
+    // Pending approval user (for testing)
+    { email: "newuser@techcorp.com", password: "newuser123", fullName: "Jane Pending", userType: "employee", requestedRole: "employee", isActive: false, tenantId: tenant.id },
   ];
 
   const createdUsers: string[] = [];

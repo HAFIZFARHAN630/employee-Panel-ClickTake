@@ -67,6 +67,7 @@ import {
   GraduationCap,
   Palette,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavItem {
   id: AdminPage;
@@ -236,6 +237,7 @@ export function AdminLayout() {
           <div className="flex-1" />
 
           {/* Notification Bell */}
+          <ThemeToggle />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

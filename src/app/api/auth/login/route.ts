@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getTokenStore } from "@/lib/auth-middleware";
+import { getTokenStore, verifyToken } from "@/lib/auth-middleware";
 
 function generateToken(): string {
   const array = new Uint8Array(32);
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     }
 
     if (!user.isActive) {
-      return NextResponse.json({ message: "Account is disabled" }, { status: 403 });
+      return NextResponse.json({ message: "ACCOUNT_PENDING_APPROVAL" }, { status: 403 });
     }
 
     const token = generateToken();
@@ -45,6 +45,5 @@ export async function POST(req: Request) {
   }
 }
 
-export function verifyToken(token: string) {
-  return getTokenStore().get(token) || null;
-}
+// Re-export for backward compat (auth/me uses this)
+export { verifyToken };

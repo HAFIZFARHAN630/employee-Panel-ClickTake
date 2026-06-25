@@ -89,25 +89,55 @@ function formatCurrency(amount: number) {
 
 // ============ STAT CARD ============
 
+type CardAccent = "pink" | "purple" | "blue" | "amber";
+
 interface StatCardProps {
   title: string;
   value: number | string;
   icon: React.ElementType;
   trend: string;
-  gradient: string;
+  accent: CardAccent;
+  iconGradient?: string;
 }
 
-function StatCard({ title, value, icon: Icon, trend, gradient }: StatCardProps) {
+function getAccentClasses(accent: CardAccent) {
+  const map: Record<CardAccent, { gradient: string; border: string; iconBg: string }> = {
+    pink: {
+      gradient: "bg-[var(--card-gradient-pink)]",
+      border: "border-l-pink-accent",
+      iconBg: "bg-pink-accent/15 text-pink-accent",
+    },
+    purple: {
+      gradient: "bg-[var(--card-gradient-purple)]",
+      border: "border-l-purple-accent",
+      iconBg: "bg-purple-accent/15 text-purple-accent",
+    },
+    blue: {
+      gradient: "bg-[var(--card-gradient-blue)]",
+      border: "border-l-blue-accent",
+      iconBg: "bg-blue-accent/15 text-blue-accent",
+    },
+    amber: {
+      gradient: "bg-[var(--card-gradient-mixed)]",
+      border: "border-l-yellow-500",
+      iconBg: "bg-yellow-500/15 text-yellow-500",
+    },
+  };
+  return map[accent];
+}
+
+function StatCard({ title, value, icon: Icon, trend, accent }: StatCardProps) {
+  const classes = getAccentClasses(accent);
   return (
-    <Card className={`hover:shadow-md transition-shadow ${gradient}`}>
+    <Card className={`hover:shadow-md transition-shadow border-l-4 ${classes.gradient} ${classes.border}`}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="text-2xl font-bold">{value}</p>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-[#E0197A] to-[#7B2FBE]">
-            <Icon className="h-6 w-6 text-white" />
+          <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${classes.iconBg}`}>
+            <Icon className="h-6 w-6" />
           </div>
         </div>
         <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
@@ -253,28 +283,28 @@ export function DashboardPage() {
             value={stats?.totalEmployees ?? 0}
             icon={Users}
             trend="+12% from last week"
-            gradient="bg-gradient-to-br from-[#E0197A]/10 to-[#E0197A]/5 border border-[#E0197A]/20"
+            accent="pink"
           />
           <StatCard
             title="Active Projects"
             value={stats?.activeProjects ?? 0}
             icon={FolderKanban}
             trend="+8% from last month"
-            gradient="bg-gradient-to-br from-[#7B2FBE]/10 to-[#7B2FBE]/5 border border-[#7B2FBE]/20"
+            accent="purple"
           />
           <StatCard
             title="Pending Leaves"
             value={stats?.pendingLeaves ?? 0}
             icon={CalendarOff}
             trend="-3% from last week"
-            gradient="bg-gradient-to-br from-[#4A90D9]/10 to-[#4A90D9]/5 border border-[#4A90D9]/20"
+            accent="blue"
           />
           <StatCard
             title="Pending Verifications"
             value={stats?.unverifiedFaces ?? 0}
             icon={UserCheck}
             trend="Needs attention"
-            gradient="bg-gradient-to-br from-[#F59E0B]/10 to-[#F59E0B]/5 border border-[#F59E0B]/20"
+            accent="amber"
           />
         </div>
       )}

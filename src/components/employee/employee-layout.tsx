@@ -44,6 +44,7 @@ import {
   User,
   Building2,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavItem {
   id: EmployeePage;
@@ -201,6 +202,7 @@ export function EmployeeLayout() {
           <div className="flex-1" />
 
           {/* Notification Bell */}
+          <ThemeToggle />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

@@ -59,6 +59,10 @@ import {
   Users,
   Filter,
   X,
+  Clock,
+  Check,
+  UserX,
+  Loader2,
 } from "lucide-react";
 
 // ============ HELPERS ============
@@ -158,11 +162,28 @@ export function UsersPage() {
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Pending approvals state
+  const [pendingUsers, setPendingUsers] = useState<{ id: string; email: string; fullName: string; requestedRole: string | null; createdAt: string }[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+
   // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
   // ============ FETCH ============
+
+  const fetchPendingUsers = useCallback(async () => {
+    setPendingLoading(true);
+    try {
+      const data = await api.get<{ id: string; email: string; fullName: string; requestedRole: string | null; createdAt: string }[]>("/api/auth/pending-approvals");
+      setPendingUsers(data);
+    } catch {
+      setPendingUsers([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -198,6 +219,10 @@ export function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  useEffect(() => {
+    fetchPendingUsers();
+  }, [fetchPendingUsers]);
 
   // Debounce search
   useEffect(() => {
@@ -286,6 +311,30 @@ export function UsersPage() {
     }
   }
 
+  async function handleApprove(userId: string) {
+    try {
+      await api.post(`/api/auth/pending-approvals/${userId}?action=approve`);
+      setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
+    } catch {
+      // silently handle
+    }
+  }
+
+  async function handleReject(userId: string) {
+    setRejectingId(userId);
+    try {
+      await fetch(`/api/auth/pending-approvals/${userId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...(typeof window !== "undefined" ? (() => { const a = localStorage.getItem("ems_auth"); if (a) { try { const p = JSON.parse(a); return { Authorization: `Bearer ${p.token}` }; } catch { return {}; } } return {}; })() : {}) },
+      });
+      setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
+    } catch {
+      // silently handle
+    } finally {
+      setRejectingId(null);
+    }
+  }
+
   function clearFilters() {
     setSearchQuery("");
     setFilterType("all");
@@ -312,6 +361,107 @@ export function UsersPage() {
           Add User
         </Button>
       </div>
+
+      {/* Pending Approvals */}
+      {pendingLoading ? (
+        <Card className="border-l-4 border-l-yellow-500" style={{ background: "var(--card-gradient-purple, var(--card))" }}>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-5 w-5 rounded" />
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-5 w-5 rounded ml-auto" />
+            </div>
+          </CardContent>
+        </Card>
+      ) : pendingUsers.length > 0 ? (
+        <Card className="border-l-4 border-l-yellow-500 overflow-hidden" style={{ background: "var(--card-gradient-purple, var(--card))" }}>
+          <CardContent className="p-0">
+            <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+              <Clock className="h-4 w-4 text-yellow-500" />
+              <h3 className="text-sm font-semibold">Pending Approvals</h3>
+              <Badge variant="outline" className="text-yellow-600 border-yellow-500/40 bg-yellow-500/10 text-xs">
+                {pendingUsers.length}
+              </Badge>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">Name</TableHead>
+                    <TableHead className="text-xs">Email</TableHead>
+                    <TableHead className="text-xs">Requested Role</TableHead>
+                    <TableHead className="text-xs hidden sm:table-cell">Date Requested</TableHead>
+                    <TableHead className="text-xs text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingUsers.map((pu) => (
+                    <TableRow key={pu.id}>
+                      <TableCell className="font-medium text-sm">{pu.fullName}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{pu.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs capitalize">
+                          {pu.requestedRole?.replace("_", " ") || "N/A"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
+                        {new Date(pu.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-500/10"
+                            onClick={() => handleApprove(pu.id)}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-destructive hover:bg-destructive/10"
+                                disabled={rejectingId === pu.id}
+                              >
+                                {rejectingId === pu.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <UserX className="h-4 w-4 mr-1" />
+                                )}
+                                Reject
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reject Registration?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to reject <strong>{pu.fullName}</strong> ({pu.email})? This will permanently delete their account.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleReject(pu.id)}
+                                  className="bg-destructive text-white hover:bg-destructive/90"
+                                >
+                                  Delete Account
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Filters */}
       <Card>

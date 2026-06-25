@@ -36,7 +36,8 @@ model User {
   fullName        String   @map("full_name")
   userType        String   @default("employee") @map("user_type")
   role            String   @default("viewer")
-  isActive        Boolean  @default(true) @map("is_active")
+  isActive        Boolean  @default(false) @map("is_active")
+  requestedRole   String?  @map("requested_role")
   isSuperuser     Boolean  @default(false) @map("is_superuser")
   isFaceVerified  Boolean  @default(false) @map("is_face_verified")
   avatarUrl       String?  @map("avatar_url")
@@ -470,6 +471,18 @@ model AIModelConfig {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("ai_model_configs")
+}
+
+// ============ PASSWORD RESET TOKEN ============
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
 }
 
 // ============ HR TRAINING DATA ============

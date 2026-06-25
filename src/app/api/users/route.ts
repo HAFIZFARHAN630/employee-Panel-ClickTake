@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         avatarUrl: true,
         createdAt: true,
         updatedAt: true,
-        employee: { select: { id: true, department: true, role: true } },
+        employee: { select: { id: true, department: true, designation: true } },
       },
     });
 

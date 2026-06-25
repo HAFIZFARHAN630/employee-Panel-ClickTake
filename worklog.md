@@ -234,3 +234,67 @@ Stage Summary:
 - Theme engine with exact pink/purple color scheme
 - GPS graceful fallback for attendance
 - Ready for GitHub push and Firebase deployment
+
+---
+Task ID: 4
+Agent: full-stack-developer
+Task: Auth Registration, Pending Approvals, Password Reset API Routes
+
+Work Log:
+- Created POST /api/auth/register — validates requestedRole (blocks super_admin/admin), creates User (isActive: false) with IndividualUser, and Employee record for employee/freelancer roles; returns 201 or 409 for duplicate email
+- Created GET /api/auth/pending-approvals — admin-only endpoint listing all inactive users (id, email, fullName, requestedRole, createdAt)
+- Created POST /api/auth/pending-approvals/[id]?action=approve — admin-only, activates user, clears requestedRole, creates approval Notification
+- Created DELETE /api/auth/pending-approvals/[id] — admin-only, deletes user (cascade handles related records)
+- Created POST /api/auth/forgot-password — finds user by email, generates crypto-secure reset token, stores PasswordResetToken with 1-hour expiry, returns token for testing
+- Created POST /api/auth/reset-password — validates token (unused, not expired), updates user password, marks token as used
+- Updated POST /api/auth/login — changed inactive user response message from "Account is disabled" to "ACCOUNT_PENDING_APPROVAL" for frontend detection
+
+Stage Summary:
+- 5 new auth API routes created following existing project patterns (db, authenticate, NextResponse.json)
+- Login route updated to distinguish pending approval from generic disabled state
+- All routes use proper error handling, status codes, and console.error logging
+
+---
+Task ID: 5-6-7
+Agent: full-stack-developer
+Task: Auth Pages (Signup, Forgot Password, Reset Password) + Login Page Updates + App Router
+
+Work Log:
+- Created /src/components/auth/signup-page.tsx — "use client" component with Full Name, Email, Password, Role Selector (employee/freelancer/client), POST to /api/auth/register, green success card with 3s redirect to login, 409/403 error handling, ThemeToggle top-right, "Already have an account? Sign In" link
+- Created /src/components/auth/forgot-password-page.tsx — "use client" component with Email input + "Send Reset Link" button, POST to /api/auth/forgot-password, green success message, 404 "User not found" error, "Back to Sign In" link, ThemeToggle top-right
+- Created /src/components/auth/reset-password-page.tsx — "use client" component with New Password + Confirm Password inputs, reads resetToken from localStorage on mount, validates passwords match, POST to /api/auth/reset-password, invalid/expired link error state, 2s redirect on success, clears token from localStorage, ThemeToggle top-right
+- Modified /src/components/auth/login-page.tsx — added ThemeToggle import + top-right absolute positioning, added "Forgot Password?" link below Sign In button calling setAppView("forgot-password"), added "Don't have an account? Sign Up" link calling setAppView("signup"), updated handleSubmit to check login result.message for "ACCOUNT_PENDING_APPROVAL" and show red alert
+- Modified /src/lib/auth-context.tsx — changed login() return type from Promise<boolean> to Promise<{success: boolean; message?: string}>, login() now reads response body on non-ok to extract message/error, added navigateToResetPassword(token) function that stores token in localStorage and sets appView to "reset-password", exported in context type and provider value
+- Modified /src/app/page.tsx — updated AppRouter switch to handle all 6 views: "login" → LoginPage, "signup" → SignupPage, "forgot-password" → ForgotPasswordPage, "reset-password" → ResetPasswordPage, "admin" → AdminLayout, "employee" → EmployeeLayout
+
+Stage Summary:
+- 3 new auth page components with consistent centered layout, decorative backgrounds, and ThemeToggle
+- Login page enhanced with navigation links and pending approval error detection
+- Auth context login now returns structured result with error message for frontend handling
+- navigateToResetPassword utility added to auth context
+- Complete auth flow: Login → Signup → Forgot Password → Reset Password, all wired through AppView router
+---
+Task ID: 1-10
+Agent: main
+Task: AUTH OVERHAUL — Admin Approval, Forgot Password, Theme System
+
+Work Log:
+- Updated Prisma schema: added requestedRole (nullable) to User, isActive default false, new PasswordResetToken model
+- Fixed seed.ts: set isActive:true for all seed users, added test pending user (Jane Pending), fixed role→designation field, fixed link→actionUrl field
+- Replaced next-themes ThemeProvider with custom ThemeContext using data-theme attribute on <html>
+- Created CSS theme system: [data-theme="dark"] and [data-theme="light"] with exact color specs (--bg-primary, --color-pink, --color-purple, --color-blue, --text-primary, --text-muted, --border-color)
+- Created ThemeToggle component (Sun/Moon icons) placed in all layouts
+- Created 5 new API routes: register, pending-approvals (GET), pending-approvals/[id] (POST approve, DELETE reject), forgot-password, reset-password
+- Updated login route: blocks inactive users with ACCOUNT_PENDING_APPROVAL, moved verifyToken to auth-middleware to fix Turbopack module isolation
+- Fixed users API: employee.role → employee.designation
+- Created 3 new auth pages: SignupPage (role selector: employee/freelancer/client), ForgotPasswordPage, ResetPasswordPage
+- Updated LoginPage: added Forgot Password + Sign Up links, ThemeToggle, pending approval error handling
+- Updated auth-context: login returns {success, message} for error detection, added navigateToResetPassword, added new AppView types
+- Updated page.tsx router for all 6 views
+- Built Pending Approvals UI in Users page: table with Name/Email/RequestedRole/Date/Actions (Approve green, Reject red with confirmation modal)
+- Updated Dashboard stat cards: CSS variable-based gradients with glowing left border (pink/purple/blue/amber accents)
+- Added ThemeToggle to admin-layout and employee-layout headers
+
+Stage Summary:
+- Full auth overhaul: registration with admin approval, forgot/reset password, theme toggle
+- All 10 todos completed, lint clean, browser-verified

@@ -13,13 +13,19 @@ interface AuthState {
   employeePage: EmployeePage;
 }
 
+interface LoginResult {
+  success: boolean;
+  message?: string;
+}
+
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => void;
   setAppView: (view: AppView) => void;
   setAdminPage: (page: AdminPage) => void;
   setEmployeePage: (page: EmployeePage) => void;
   refreshUser: () => Promise<void>;
+  navigateToResetPassword: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,14 +40,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     employeePage: "overview",
   });
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) return false;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { success: false, message: data.message || data.error || "" };
+      }
       const data = await res.json();
       persistAuth(data.user, data.token);
       setState((prev) => ({
@@ -51,9 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: true,
         appView: (data.user.userType === "admin" || data.user.userType === "super_admin" || data.user.userType === "manager") ? "admin" : "employee",
       }));
-      return true;
+      return { success: true };
     } catch {
-      return false;
+      return { success: false };
     }
   }, []);
 
@@ -81,6 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, employeePage: page }));
   }, []);
 
+  const navigateToResetPassword = useCallback((token: string) => {
+    localStorage.setItem("reset_token", token);
+    setState((prev) => ({ ...prev, appView: "reset-password" }));
+  }, []);
+
   const refreshUser = useCallback(async () => {
     if (!state.token) return;
     try {
@@ -106,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAdminPage,
         setEmployeePage,
         refreshUser,
+        navigateToResetPassword,
       }}
     >
       {children}
