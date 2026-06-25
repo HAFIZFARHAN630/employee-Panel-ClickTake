@@ -33,9 +33,10 @@ export async function POST(req: Request) {
       },
       token,
     });
-  } catch (error) {
-    console.error("Login error:", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Login error:", msg);
+    return NextResponse.json({ message: "Login failed: " + msg }, { status: 500 });
   }
 }
 

@@ -61,8 +61,9 @@ export async function POST(req: Request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error("Register error:", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Register error:", msg);
+    return NextResponse.json({ message: "Registration failed: " + msg }, { status: 500 });
   }
 }
