@@ -357,3 +357,25 @@ Stage Summary:
 - 12 CASCADE foreign keys
 - No IF NOT EXISTS anywhere
 - File: /home/z/my-project/supabase-migration.sql
+---
+Task ID: url-fix-no-redirect
+Agent: Main Architect
+Task: Remove redirect from Firebase, make panel-clicktake.web.app the permanent frontend URL
+
+Work Log:
+- Deleted public/index.html (contained JS redirect to employee-panel-clicktake.onrender.com)
+- Updated firebase.json: replaced Firebase Functions rewrite with direct proxy to Render backend
+  - /api/** → https://employee-panel-clicktake.onrender.com/api/**
+  - ** → https://employee-panel-clicktake.onrender.com
+- Updated .env: NEXT_PUBLIC_BASE_URL changed to https://panel-clicktake.web.app
+- Updated render.yaml: NEXT_PUBLIC_BASE_URL changed to https://panel-clicktake.web.app
+- Verified all API calls use relative URLs (NEXT_PUBLIC_API_URL not set = "" = same-origin)
+- Committed and pushed to GitHub (commit 47dca56)
+
+Stage Summary:
+- No more redirect: users visiting panel-clicktake.web.app stay on that URL
+- Firebase proxies all page + API requests to Render backend transparently
+- panel-clicktake.web.app = public frontend URL (what users see)
+- employee-panel-clicktake.onrender.com = backend server (API + SSR)
+- Render will auto-rebuild from GitHub push
+- User needs to run `firebase deploy` on their end to update Firebase Hosting config
