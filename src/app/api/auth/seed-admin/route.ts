@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 // One-time route: creates a super_admin if none exists.
-// Call: POST /api/auth/seed-admin
+// Visit in browser: GET /api/auth/seed-admin
 const SEED_EMAIL = "admin@clicktake.com";
 const SEED_PASSWORD = "Admin@123";
 
-export async function POST() {
+async function seedAdmin() {
   try {
     // Check if any super_admin exists
     const existing = await db.user.findFirst({
@@ -51,4 +51,12 @@ export async function POST() {
     console.error("Seed admin error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return seedAdmin();
+}
+
+export async function POST() {
+  return seedAdmin();
 }
