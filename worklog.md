@@ -379,3 +379,19 @@ Stage Summary:
 - employee-panel-clicktake.onrender.com = backend server (API + SSR)
 - Render will auto-rebuild from GitHub push
 - User needs to run `firebase deploy` on their end to update Firebase Hosting config
+
+---
+Task ID: 17
+Agent: Main Architect
+Task: Fix Firebase deploy error "Not in a Firebase app directory" and verify API routing
+
+Work Log:
+- Diagnosed error: Firebase Hosting requires at least one file in `public/` directory — `public/index.html` was missing
+- Created minimal `public/index.html` as a fallback placeholder (all traffic is proxied via firebase.json rewrites)
+- Verified API URL routing in `api.ts` and `auth-context.tsx` — both use `process.env.NEXT_PUBLIC_API_URL || ""` (relative URLs), which works correctly through Firebase proxy
+- Committed and pushed to GitHub (commit ac0509b)
+
+Stage Summary:
+- Firebase deploy error root cause: missing `public/index.html`
+- Fix pushed to GitHub: https://github.com/HAFIZFARHAN630/employee-Panel-ClickTake
+- API routing confirmed correct — no changes needed
