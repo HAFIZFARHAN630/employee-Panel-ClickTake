@@ -1,0 +1,20 @@
+{
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".next/cache",
+      "prisma",
+      "dev.log",
+      "server.log",
+      "*.log"
+    ],
+    "frameworksBackend": {
+      "region": "asia-south1"
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

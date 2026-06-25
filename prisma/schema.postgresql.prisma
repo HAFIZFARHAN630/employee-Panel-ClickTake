@@ -1,0 +1,498 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ TENANT ============
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  orgCode   String   @default("ORG001") @map("org_code")
+  isActive  Boolean  @default(true) @map("is_active")
+  country   String   @default("")
+  region    String   @default("")
+  timezone  String   @default("Asia/Karachi")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users        User[]
+  projects     Project[]
+  activityLogs ActivityLog[]
+  settings     SessionSettings[]
+
+  @@map("tenants")
+}
+
+// ============ USER ============
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  password        String   @default("")
+  fullName        String   @map("full_name")
+  userType        String   @default("employee") @map("user_type")
+  role            String   @default("viewer")
+  isActive        Boolean  @default(false) @map("is_active")
+  requestedRole   String?  @map("requested_role")
+  isSuperuser     Boolean  @default(false) @map("is_superuser")
+  isFaceVerified  Boolean  @default(false) @map("is_face_verified")
+  avatarUrl       String?  @map("avatar_url")
+  tenantId        String?  @map("tenant_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant            Tenant?           @relation(fields: [tenantId], references: [id])
+  individualUser    IndividualUser?
+  employee          Employee?
+  notifications     Notification[]
+  createdProjects   Project[]         @relation("ProjectCreator")
+  ownedProjects     Project[]         @relation("ProjectOwner")
+  assignedProjects  EmployeeProject[] @relation("AssignedBy")
+  activityLogs      ActivityLog[]
+  grantedAccess     RBACTempAccess[]  @relation("GrantedByRel")
+  createdAnnouncements Announcement[]
+  verificationRecords VerificationRecord[]
+  reviewedVerifications VerificationRecord[] @relation("ReviewerRel")
+  awardedPoints     AwardPoint[]      @relation("AwardedByRel")
+
+  @@map("users")
+}
+
+// ============ INDIVIDUAL USER ============
+model IndividualUser {
+  id         String   @id @default(uuid())
+  userId     String   @unique @map("user_id")
+  phoneNumber String? @map("phone_number")
+  address    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("individual_users")
+}
+
+// ============ EMPLOYEE ============
+model Employee {
+  id            String    @id @default(uuid())
+  userId        String    @unique @map("user_id")
+  department    String    @default("General")
+  designation   String    @default("Employee")
+  hourlyRate    Float?    @map("hourly_rate")
+  facePhotoUrls String    @default("[]") @map("face_photo_urls")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects         EmployeeProject[]
+  leaveRequests    LeaveRequest[]
+  attendance       Attendance[]
+  timeLogs         TimeLog[]
+  signatures       EmployeeSignature[]
+  awardPoints      AwardPoint[]
+  assignedAssets   Asset[]           @relation("AssetAssignedTo")
+
+  @@map("employees")
+}
+
+// ============ PROJECT ============
+model Project {
+  id            String   @id @default(uuid())
+  name          String
+  description   String   @default("")
+  status        String   @default("draft")
+  priority      String   @default("medium")
+  progress      Int      @default(0)
+  budget        Float    @default(0)
+  tags          String   @default("[]")
+  department    String   @default("")
+  tenantId      String?  @map("tenant_id")
+  createdById   String?  @map("created_by")
+  ownerId       String?  @map("owner_id")
+  isDuplicateOf String?  @map("is_duplicate_of")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant     Tenant?            @relation(fields: [tenantId], references: [id])
+  createdBy  User?              @relation("ProjectCreator", fields: [createdById], references: [id])
+  owner      User?              @relation("ProjectOwner", fields: [ownerId], references: [id])
+  tasks      ProjectTask[]
+  assignments EmployeeProject[]
+
+  @@map("projects")
+}
+
+// ============ PROJECT TASK ============
+model ProjectTask {
+  id            String   @id @default(uuid())
+  projectId     String   @map("project_id")
+  title         String
+  description   String   @default("")
+  isCompleted   Boolean  @default(false) @map("is_completed")
+  phase         String   @default("")
+  estimatedHours Float?  @map("estimated_hours")
+  assignedTo    String?  @map("assigned_to")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_tasks")
+}
+
+// ============ EMPLOYEE PROJECT ============
+model EmployeeProject {
+  id              String   @id @default(uuid())
+  employeeId      String   @map("employee_id")
+  projectId       String   @map("project_id")
+  assignedById    String?  @map("assigned_by")
+  status          String   @default("pending")
+  progressReport  String   @default("") @map("progress_report")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedBy  User?    @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@map("employee_projects")
+}
+
+// ============ LEAVE REQUEST ============
+model LeaveRequest {
+  id          String   @id @default(uuid())
+  employeeId  String   @map("employee_id")
+  type        String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  reason      String   @default("")
+  status      String   @default("pending")
+  days        Float    @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("leave_requests")
+}
+
+// ============ ATTENDANCE ============
+model Attendance {
+  id                  String    @id @default(uuid())
+  employeeId          String    @map("employee_id")
+  date                DateTime  @map("date")
+  checkIn             DateTime? @map("check_in")
+  checkOut            DateTime? @map("check_out")
+  status              String    @default("absent")
+  hours               Float     @default(0)
+  latitude            Float?    @map("latitude")
+  longitude           Float?    @map("longitude")
+  isLocationVerified  Boolean   @default(false) @map("is_location_verified")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("attendance")
+}
+
+// ============ TIME LOG ============
+model TimeLog {
+  id                 String    @id @default(uuid())
+  employeeId         String    @map("employee_id")
+  project            String    @default("")
+  task               String    @default("")
+  tag                String    @default("")
+  startTime          DateTime  @map("start_time")
+  endTime            DateTime? @map("end_time")
+  duration           Float     @default(0)
+  isVerified         Boolean   @default(true) @map("is_verified")
+  verificationMethod String?   @map("verification_method")
+  idleFlags          Int       @default(0) @map("idle_flags")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("time_logs")
+}
+
+// ============ NOTIFICATION ============
+model Notification {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  message         String
+  notificationType String   @default("info") @map("notification_type")
+  isRead          Boolean   @default(false) @map("is_read")
+  actionUrl       String?   @map("action_url")
+  scheduledAt     DateTime? @map("scheduled_at")
+  expiresAt       DateTime? @map("expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ============ ANNOUNCEMENT ============
+model Announcement {
+  id                String    @id @default(uuid())
+  title             String
+  description       String    @default("")
+  content           String    @default("")
+  priority          String    @default("normal")
+  status            String    @default("active")
+  expiresAt         DateTime? @map("expires_at")
+  createdById       String?   @map("created_by")
+  targetRoles       String    @default("[]") @map("target_roles")
+  targetDepartments String    @default("[]") @map("target_departments")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  createdBy User? @relation(fields: [createdById], references: [id])
+
+  @@map("announcements")
+}
+
+// ============ RBAC ROLE ============
+model RBACRole {
+  id          String   @id @default(uuid())
+  roleId      String   @unique @map("role_id")
+  name        String
+  description String   @default("")
+  color       String   @default("#6b7280")
+  isSystem    Boolean  @default(false) @map("is_system")
+  parentRole  String?  @map("parent_role")
+  permissions String   @default("[]") @map("permissions")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("rbac_roles")
+}
+
+// ============ RBAC TEMP ACCESS ============
+model RBACTempAccess {
+  id          String    @id @default(uuid())
+  userEmail   String    @map("user_email")
+  role        String
+  expiresAt   DateTime  @map("expires_at")
+  grantedById String?   @map("granted_by")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  grantedBy User? @relation("GrantedByRel", fields: [grantedById], references: [id])
+
+  @@map("rbac_temp_access")
+}
+
+// ============ SESSION SETTINGS ============
+model SessionSettings {
+  id                            String   @id @default(uuid())
+  timeTrackingTimeoutMinutes    Int      @default(15) @map("time_tracking_timeout_minutes")
+  timeTrackingWarningMinutes    Int      @default(10) @map("time_tracking_warning_minutes")
+  activityCheckIntervalMinutes  Int      @default(5) @map("activity_check_interval_minutes")
+  popupCountdownSeconds         Int      @default(60) @map("popup_countdown_seconds")
+  officeLat                     Float    @default(0) @map("office_lat")
+  officeLng                     Float    @default(0) @map("office_lng")
+  allowedRadiusMeters           Int      @default(500) @map("allowed_radius_meters")
+  tenantId                      String?  @map("tenant_id")
+  createdAt                     DateTime @default(now()) @map("created_at")
+  updatedAt                     DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@map("session_settings")
+}
+
+// ============ SIGNUP POLICY ============
+model SignupPolicy {
+  id          String   @id @default(uuid())
+  label       String
+  title       String
+  storagePath String   @default("") @map("storage_path")
+  fileName    String   @default("") @map("file_name")
+  fileUrl     String   @default("") @map("file_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("signup_policies")
+}
+
+// ============ ACTIVITY LOG ============
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  userEmail  String   @default("") @map("user_email")
+  action     String
+  section    String   @default("")
+  details    String   @default("{}") @map("details")
+  tenantId   String?  @map("tenant_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user   User?   @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@map("activity_logs")
+}
+
+// ============ AGREEMENT TEMPLATE ============
+model AgreementTemplate {
+  id                    String   @id @default(uuid())
+  title                 String
+  content               String   @default("")
+  applicableRoles       String   @default("[]") @map("applicable_roles")
+  applicableDepartments String   @default("[]") @map("applicable_departments")
+  version               String   @default("1.0")
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  signatures EmployeeSignature[]
+
+  @@map("agreement_templates")
+}
+
+// ============ EMPLOYEE SIGNATURE ============
+model EmployeeSignature {
+  id                String   @id @default(uuid())
+  employeeId        String   @map("employee_id")
+  templateId        String   @map("template_id")
+  signatureImageUrl String   @default("") @map("signature_image_url")
+  ipAddress         String   @default("") @map("ip_address")
+  signedAt          DateTime @default(now()) @map("signed_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  template AgreementTemplate @relation(fields: [templateId], references: [id])
+
+  @@map("employee_signatures")
+}
+
+// ============ VERIFICATION RECORD ============
+model VerificationRecord {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  videoUrl         String   @default("") @map("video_url")
+  status           String   @default("pending")
+  reviewedBy       String?  @map("reviewed_by")
+  rejectionReason  String   @default("") @map("rejection_reason")
+  submittedAt      DateTime @default(now()) @map("submitted_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer  User?    @relation("ReviewerRel", fields: [reviewedBy], references: [id])
+
+  @@map("verification_records")
+}
+
+// ============ SHIFT ============
+model Shift {
+  id             String   @id @default(uuid())
+  name           String
+  type           String   @default("working")
+  startTime      String   @default("09:00") @map("start_time")
+  endTime        String   @default("17:00") @map("end_time")
+  applicableType String   @default("office") @map("applicable_type")
+  applicableIds  String   @default("[]") @map("applicable_ids")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("shifts")
+}
+
+// ============ AWARD POINT ============
+model AwardPoint {
+  id          String   @id @default(uuid())
+  employeeId  String   @map("employee_id")
+  points      Int      @default(0)
+  reason      String   @default("")
+  awardedById String   @map("awarded_by")
+  targetType  String   @default("individual") @map("target_type")
+  targetIds   String?  @map("target_ids")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  employee  Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  awardedBy User              @relation("AwardedByRel", fields: [awardedById], references: [id])
+
+  @@map("award_points")
+}
+
+// ============ ASSET ============
+model Asset {
+  id           String   @id @default(uuid())
+  name         String
+  serialNumber String   @default("") @map("serial_number")
+  category     String   @default("")
+  condition    String   @default("new")
+  assignedTo   String?  @map("assigned_to")
+  purchaseDate String?  @map("purchase_date")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  assignee Employee? @relation("AssetAssignedTo", fields: [assignedTo], references: [id])
+
+  @@map("assets")
+}
+
+// ============ BRANDING SETTINGS ============
+model BrandingSettings {
+  id                String   @id @default(uuid())
+  logoUrls          String   @default("[]") @map("logo_urls")
+  officeLocations   String   @default("[]") @map("office_locations")
+  contactEmails     String   @default("[]") @map("contact_emails")
+  contactPhones     String   @default("[]") @map("contact_phones")
+  socialMediaLinks  String   @default("{}") @map("social_media_links")
+  primaryColor      String   @default("#E0197A") @map("primary_color")
+  secondaryColor    String   @default("#7B2FBE") @map("secondary_color")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("branding_settings")
+}
+
+// ============ AI MODEL CONFIG ============
+model AIModelConfig {
+  id        String   @id @default(uuid())
+  modelName String   @default("") @map("model_name")
+  provider  String   @default("openai")
+  apiKey    String   @default("") @map("api_key")
+  purpose   String   @default("")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_model_configs")
+}
+
+// ============ PASSWORD RESET TOKEN ============
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
+}
+
+// ============ HR TRAINING DATA ============
+model HRTrainingData {
+  id         String   @id @default(uuid())
+  question   String
+  answer     String   @default("")
+  category   String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("hr_training_data")
+}

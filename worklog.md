@@ -298,3 +298,37 @@ Work Log:
 Stage Summary:
 - Full auth overhaul: registration with admin approval, forgot/reset password, theme toggle
 - All 10 todos completed, lint clean, browser-verified
+---
+Task ID: 12-14
+Agent: general-purpose
+Task: Create deployment configs for GitHub, Firebase, Render
+
+Work Log:
+- Created firebase.json for Firebase App Hosting
+- Created .firebaserc with default project
+- Created render.yaml for Render Web Service
+- Created Dockerfile with multi-stage build
+- Created .dockerignore
+- Created .env.example
+
+Stage Summary:
+- firebase.json — Firebase App Hosting config
+- .firebaserc — Firebase project config
+- render.yaml — Render Web Service config
+- Dockerfile — Multi-stage Next.js Docker build
+- .dockerignore — Docker build exclusions
+- .env.example — Environment variable template
+---
+Task ID: 15
+Agent: general-purpose
+Task: Create Supabase PostgreSQL migration and Prisma PostgreSQL schema
+
+Work Log:
+- Read full Prisma schema (27 models)
+- Converted all SQLite types to PostgreSQL equivalents
+- Created ordered SQL migration with FK constraints and indexes
+- Created PostgreSQL-specific Prisma schema
+
+Stage Summary:
+- /home/z/my-project/supabase-migration.sql — Full PostgreSQL DDL migration
+- /home/z/my-project/prisma/schema.postgresql.prisma — Prisma schema for PostgreSQL
