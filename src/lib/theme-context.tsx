@@ -1,13 +1,27 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import React, { createContext, useContext, useCallback, useSyncExternalStore, type ReactNode } from "react";
 
 type Theme = "dark" | "light";
 
-function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
-  const stored = localStorage.getItem("theme") as Theme | null;
-  return stored || "dark";
+// --- External store for theme (localStorage) ---
+function subscribeToTheme(callback: () => void) {
+  window.addEventListener("storage", callback);
+  // Custom event so we can dispatch from within the same tab
+  window.addEventListener("theme-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("theme-change", callback);
+  };
+}
+
+function getThemeSnapshot(): Theme {
+  return (localStorage.getItem("theme") as Theme) || "dark";
+}
+
+// Server always returns "dark" to match <html data-theme="dark">
+function getServerThemeSnapshot(): Theme {
+  return "dark";
 }
 
 interface ThemeContextType {
@@ -23,23 +37,34 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  // useSyncExternalStore handles hydration correctly:
+  // - Server uses getServerThemeSnapshot() → "dark"
+  // - Client uses getThemeSnapshot() → reads localStorage
+  // React reconciles the difference without a hydration error
+  const theme = useSyncExternalStore(
+    subscribeToTheme,
+    getThemeSnapshot,
+    getServerThemeSnapshot,
+  );
 
-  useEffect(() => {
+  // Keep data-theme attribute in sync
+  React.useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {
-    setThemeState(t);
     localStorage.setItem("theme", t);
+    document.documentElement.setAttribute("data-theme", t);
+    // Dispatch custom event so useSyncExternalStore re-reads
+    window.dispatchEvent(new Event("theme-change"));
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      const next = prev === "dark" ? "light" : "dark";
-      localStorage.setItem("theme", next);
-      return next;
-    });
+    const current = (localStorage.getItem("theme") as Theme) || "dark";
+    const next = current === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", next);
+    document.documentElement.setAttribute("data-theme", next);
+    window.dispatchEvent(new Event("theme-change"));
   }, []);
 
   return (
