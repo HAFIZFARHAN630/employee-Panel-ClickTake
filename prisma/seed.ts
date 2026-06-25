@@ -63,7 +63,7 @@ async function main() {
         data: {
           userId: user.id,
           department: dept,
-          role: user.userType === "freelancer" ? "Freelance Developer" : "Team Member",
+          designation: user.userType === "freelancer" ? "Freelance Developer" : "Team Member",
         },
       });
     }
@@ -248,7 +248,7 @@ async function main() {
           message: notificationMessages[i].message,
           notificationType: notificationMessages[i].type,
           isRead: Math.random() > 0.6,
-          link: i % 3 === 0 ? "/projects" : "",
+          actionUrl: i % 3 === 0 ? "/projects" : null,
         },
       });
     }

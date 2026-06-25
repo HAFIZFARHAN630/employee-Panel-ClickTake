@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Loader2, Eye, EyeOff, Building2 } from "lucide-react";
+import { Loader2, Eye, EyeOff, Building2, ShieldCheck } from "lucide-react";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -35,11 +34,7 @@ export function LoginPage() {
     }
   };
 
-  const fillCredentials = (email: string, pwd: string) => {
-    setEmail(email);
-    setPassword(pwd);
-    setError("");
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/40 p-4">
@@ -138,54 +133,11 @@ export function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Demo Credentials */}
-        <Card className="mt-6 shadow-sm border-dashed border-border/60">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground mb-3 text-center uppercase tracking-wider">
-              Demo Credentials
-            </p>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() =>
-                  fillCredentials("admin@techcorp.com", "admin123")
-                }
-                className="w-full text-left flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/60 transition-colors cursor-pointer"
-              >
-                <span className="font-medium">Admin</span>
-                <span className="text-xs text-muted-foreground font-mono">
-                  admin@techcorp.com / admin123
-                </span>
-              </button>
-              <Separator />
-              <button
-                type="button"
-                onClick={() =>
-                  fillCredentials("manager@techcorp.com", "manager123")
-                }
-                className="w-full text-left flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/60 transition-colors cursor-pointer"
-              >
-                <span className="font-medium">Manager</span>
-                <span className="text-xs text-muted-foreground font-mono">
-                  manager@techcorp.com / manager123
-                </span>
-              </button>
-              <Separator />
-              <button
-                type="button"
-                onClick={() =>
-                  fillCredentials("employee@techcorp.com", "emp123")
-                }
-                className="w-full text-left flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/60 transition-colors cursor-pointer"
-              >
-                <span className="font-medium">Employee</span>
-                <span className="text-xs text-muted-foreground font-mono">
-                  employee@techcorp.com / emp123
-                </span>
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Security Notice */}
+        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span>Secured with enterprise-grade encryption</span>
+        </div>
       </div>
     </div>
   );
