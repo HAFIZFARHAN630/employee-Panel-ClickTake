@@ -18,8 +18,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ScanFace, CheckCircle2, XCircle, Clock, Play } from "lucide-react";
+import { safeFormat } from "@/lib/date-utils";
 import { toast } from "sonner";
-import { format } from "date-fns";
 
 // ============ HELPERS ============
 
@@ -184,7 +184,7 @@ export function VerificationPage() {
                 </div>
                 <div>{getStatusBadge(record.status)}</div>
                 <div className="text-xs text-muted-foreground">
-                  Submitted: {format(new Date(record.submittedAt), "MMM d, yyyy h:mm a")}
+                  Submitted: {safeFormat(record.submittedAt, "MMM d, yyyy h:mm a")}
                 </div>
                 {record.status === "rejected" && record.rejectionReason && (
                   <div className="text-xs text-red-600 bg-red-50 rounded-md p-2">
@@ -254,7 +254,7 @@ export function VerificationPage() {
 
               {/* Submitted date */}
               <p className="text-xs text-muted-foreground">
-                Submitted on {format(new Date(selectedRecord.submittedAt), "MMMM d, yyyy 'at' h:mm a")}
+                Submitted on {safeFormat(selectedRecord.submittedAt, "MMMM d, yyyy 'at' h:mm a")}
               </p>
 
               {/* Reject reason form */}

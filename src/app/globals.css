@@ -164,3 +164,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Theme toggle icons: show Sun in dark mode, Moon in light mode */
+[data-theme="dark"] .theme-icon-moon {
+  display: none;
+}
+[data-theme="light"] .theme-icon-sun {
+  display: none;
+}
