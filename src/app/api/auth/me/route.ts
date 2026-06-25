@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { verifyJwtToken } from "@/lib/auth-middleware";
+import { db } from "@/lib/db";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("Authorization");
@@ -7,15 +9,11 @@ export async function GET(req: Request) {
   }
 
   const token = authHeader.replace("Bearer ", "");
-
-  // Import the verifyToken from login route
-  const { verifyToken } = await import("../login/route");
-  const tokenData = verifyToken(token);
+  const tokenData = verifyJwtToken(token);
   if (!tokenData) {
-    return NextResponse.json({ message: "Invalid token" }, { status: 401 });
+    return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
   }
 
-  const { db } = await import("@/lib/db");
   const user = await db.user.findUnique({
     where: { id: tokenData.userId },
     include: { individualUser: true, employee: true },

@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getTokenStore, verifyToken } from "@/lib/auth-middleware";
-
-function generateToken(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
-}
+import { signToken, verifyJwtToken } from "@/lib/auth-middleware";
 
 export async function POST(req: Request) {
   try {
@@ -25,8 +19,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "ACCOUNT_PENDING_APPROVAL" }, { status: 403 });
     }
 
-    const token = generateToken();
-    getTokenStore().set(token, { userId: user.id, email: user.email });
+    // Sign a proper JWT token (persists across restarts, works on Render)
+    const token = signToken({ userId: user.id, email: user.email });
 
     const { password: _, ...safeUser } = user;
     void _;
@@ -46,4 +40,4 @@ export async function POST(req: Request) {
 }
 
 // Re-export for backward compat (auth/me uses this)
-export { verifyToken };
+export { verifyJwtToken as verifyToken };

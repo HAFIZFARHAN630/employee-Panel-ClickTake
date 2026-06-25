@@ -1,23 +1,39 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import jwt from "jsonwebtoken";
 
 export interface AuthResult {
   userId: string;
   email: string;
   userType: string;
   isSuperuser: boolean;
+  id: string;
 }
 
-// Single source of truth for the in-memory token store
-const tokenStore = new Map<string, { userId: string; email: string }>();
-
-export function getTokenStore() {
-  return tokenStore;
+export interface TokenPayload {
+  userId: string;
+  email: string;
 }
 
-// Verify token directly here — avoids Turbopack cross-module instance issues
-export function verifyToken(token: string) {
-  return tokenStore.get(token) || null;
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    // Fallback for dev — in-memory tokens still work in dev mode
+    return "dev-only-secret-do-not-use-in-production";
+  }
+  return secret;
+}
+
+export function signToken(payload: TokenPayload): string {
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
+}
+
+export function verifyJwtToken(token: string): TokenPayload | null {
+  try {
+    return jwt.verify(token, getJwtSecret()) as TokenPayload;
+  } catch {
+    return null;
+  }
 }
 
 export async function authenticate(req: Request): Promise<AuthResult | NextResponse> {
@@ -27,9 +43,9 @@ export async function authenticate(req: Request): Promise<AuthResult | NextRespo
   }
 
   const token = authHeader.replace("Bearer ", "");
-  const tokenData = verifyToken(token);
+  const tokenData = verifyJwtToken(token);
   if (!tokenData) {
-    return NextResponse.json({ message: "Invalid token" }, { status: 401 });
+    return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
   }
 
   const user = await db.user.findUnique({
@@ -42,6 +58,7 @@ export async function authenticate(req: Request): Promise<AuthResult | NextRespo
   }
 
   return {
+    id: user.id,
     userId: user.id,
     email: user.email,
     userType: user.userType,
