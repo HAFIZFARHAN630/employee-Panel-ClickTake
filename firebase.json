@@ -8,14 +8,11 @@
     "rewrites": [
       {
         "source": "/api/**",
-        "run": {
-          "serviceId": "employee-panel",
-          "region": "asia-south1"
-        }
+        "destination": "https://employee-panel-clicktake.onrender.com/api/**"
       },
       {
         "source": "**",
-        "destination": "/index.html"
+        "destination": "https://employee-panel-clicktake.onrender.com"
       }
     ],
     "headers": [

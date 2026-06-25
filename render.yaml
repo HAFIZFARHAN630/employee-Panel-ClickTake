@@ -48,4 +48,4 @@ services:
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnaWN1cW1wa3ZlZWdzamdtY3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjMxMDgsImV4cCI6MjA5Nzc5OTEwOH0.c8qTfunvdONX5JWQ5mJrLY4UTAy13hN1CoRAOdZAU7w
       - key: NEXT_PUBLIC_BASE_URL
-        value: https://employee-panel-clicktake.onrender.com
+        value: https://panel-clicktake.web.app
