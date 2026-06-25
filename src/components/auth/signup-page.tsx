@@ -62,7 +62,7 @@ export function SignupPage() {
         } else if (res.status === 403) {
           setError("Cannot request admin roles");
         } else {
-          setError(data.error || "Registration failed. Please try again.");
+          setError(data.message || data.error || "Registration failed. Please try again.");
         }
       }
     } catch {
