@@ -17,7 +17,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: postgresql://postgres:cTM5%3FZuqCsYk7-5@db.ggicuqmpkveegsjgmcvc.supabase.co:5432/postgres?sslmode=require
+        value: "postgresql://postgres.ggicuqmpkveegsjgmcvc:cTM5%3FZuqCsYk7-5@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
       - key: JWT_SECRET
         value: f9c7e16e424084754f272f9a00b87fc25d7ece1c7730fee2fbd446f5294dc3e3
       - key: CLOUDINARY_CLOUD_NAME
