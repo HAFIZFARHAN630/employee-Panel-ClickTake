@@ -8,13 +8,11 @@
       "prisma",
       "dev.log",
       "server.log",
-      "*.log"
+      "*.log",
+      "db"
     ],
     "frameworksBackend": {
       "region": "asia-south1"
     }
-  },
-  "firestore": {
-    "rules": "firestore.rules"
   }
 }
