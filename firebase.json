@@ -1,18 +1,28 @@
 {
   "hosting": {
-    "source": ".",
+    "public": "public",
     "ignore": [
-      "node_modules",
-      ".git",
-      ".next/cache",
-      "prisma",
-      "dev.log",
-      "server.log",
-      "*.log",
-      "db"
+      "firebase.json",
+      "**/node_modules/**"
     ],
-    "frameworksBackend": {
-      "region": "asia-south1"
-    }
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "destination": "https://employee-panel-clicktake.onrender.com/api/**"
+      },
+      {
+        "source": "**",
+        "destination": "https://employee-panel-clicktake.onrender.com"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/api/**",
+        "headers": [
+          { "key": "X-Forwarded-Host", "value": "panel-clicktake.web.app" },
+          { "key": "Access-Control-Allow-Origin", "value": "*" }
+        ]
+      }
+    ]
   }
 }
