@@ -12,7 +12,7 @@
       },
       {
         "source": "**",
-        "destination": "https://employee-panel-clicktake.onrender.com"
+        "destination": "/index.html"
       }
     ],
     "headers": [
