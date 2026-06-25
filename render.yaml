@@ -8,7 +8,6 @@ services:
     buildCommand: |
       npm install -g bun
       bun install
-      cp prisma/schema.postgresql.prisma prisma/schema.prisma
       bunx prisma generate
       npx next build
       cp -r .next/static .next/standalone/.next/
