@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useCallback, type ReactNode
 import type { User, AppView, AdminPage, EmployeePage } from "./types";
 import { persistAuth, clearAuth } from "./api";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
 interface AuthState {
   user: User | null;
   token: string | null;
@@ -42,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -98,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     if (!state.token) return;
     try {
-      const res = await fetch("/api/auth/me", {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
         headers: { Authorization: `Bearer ${state.token}` },
       });
       if (res.ok) {

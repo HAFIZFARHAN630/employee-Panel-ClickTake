@@ -1,6 +1,7 @@
 DATABASE_URL=postgresql://postgres:cTM5%3FZuqCsYk7-5@db.ggicuqmpkveegsjgmcvc.supabase.co:5432/postgres?sslmode=require
 JWT_SECRET=f9c7e16e424084754f272f9a00b87fc25d7ece1c7730fee2fbd446f5294dc3e3
 NODE_ENV=production
+NEXT_PUBLIC_API_URL=
 NEXT_PUBLIC_BASE_URL=https://employee-panel-clicktake.onrender.com
 CLOUDINARY_CLOUD_NAME=dwioesu97
 CLOUDINARY_API_KEY=641277517839454

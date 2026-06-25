@@ -1,4 +1,7 @@
-const API_BASE = "";
+// When deployed on Firebase, API calls must go to the Render backend.
+// When on Render (self-hosted), API calls are relative (same origin).
+// Falls back to "" (relative) in dev mode.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface FetchOptions extends RequestInit {
   params?: Record<string, string>;
