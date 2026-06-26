@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { AdminPage } from "@/lib/types";
 import { DashboardPage } from "./dashboard-page";
@@ -23,6 +24,7 @@ import { VerificationPage } from "./verification-page";
 import { AgreementsPage } from "./agreements-page";
 import { BrandingPage } from "./branding-page";
 import { SettingsPage } from "./settings-page";
+import { StoragePage } from "./storage-page";
 import { DepartmentsPage } from "./departments-page";
 import { LiveTrackingPage } from "./live-tracking-page";
 import { ChatPage } from "./chat-page";
@@ -75,6 +77,7 @@ import {
   MessageSquare,
   Webhook,
   Store,
+  HardDrive,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -109,6 +112,7 @@ const adminNavItems: NavItem[] = [
   { id: "branding", label: "Branding", icon: Palette },
   { id: "integrations", label: "Integrations", icon: Webhook },
   { id: "business-data", label: "Business Data", icon: Store },
+  { id: "storage", label: "Storage", icon: HardDrive },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -122,22 +126,28 @@ function SidebarContent({
   onNavigate,
   onLogout,
   userFullName,
+  branding,
 }: {
   currentPage: AdminPage;
   onNavigate: (page: AdminPage) => void;
   onLogout: () => void;
   userFullName: string;
+  branding: { logoUrl?: string; companyName?: string } | null;
 }) {
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground">
-          <Building2 className="w-5 h-5" />
-        </div>
+        {branding?.logoUrl ? (
+          <img src={branding.logoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-cover" />
+        ) : (
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground">
+            <Building2 className="w-5 h-5" />
+          </div>
+        )}
         <div>
           <h2 className="text-base font-bold tracking-tight leading-none">
-            EMS
+            {branding?.companyName || "EMS"}
           </h2>
           <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
             Admin Panel
@@ -201,6 +211,17 @@ function SidebarContent({
 export function AdminLayout() {
   const { user, adminPage, setAdminPage, logout } = useAuth();
   const pageTitle = useMemo(() => getPageTitle(adminPage), [adminPage]);
+  const [branding, setBranding] = useState<{ logoUrl?: string; companyName?: string } | null>(null);
+
+  useEffect(() => {
+    api.get<Record<string, string>>("/api/branding").then((data) => {
+      let logoUrl: string | undefined;
+      if (data.logoUrls) {
+        try { const arr = JSON.parse(data.logoUrls); logoUrl = Array.isArray(arr) ? arr[0] : undefined; } catch {}
+      }
+      setBranding({ logoUrl, companyName: data.companyName });
+    }).catch(() => {});
+  }, []);
 
   const userFullName = user?.fullName ?? "User";
   const unreadCount = 3; // placeholder
@@ -214,6 +235,7 @@ export function AdminLayout() {
           onNavigate={setAdminPage}
           onLogout={logout}
           userFullName={userFullName}
+          branding={branding}
         />
       </aside>
 
@@ -241,6 +263,7 @@ export function AdminLayout() {
                 }}
                 onLogout={logout}
                 userFullName={userFullName}
+                branding={branding}
               />
             </SheetContent>
           </Sheet>
@@ -348,6 +371,7 @@ export function AdminLayout() {
           {adminPage === "chat" && <ChatPage />}
           {adminPage === "integrations" && <IntegrationsPage />}
           {adminPage === "business-data" && <BusinessDataPage />}
+          {adminPage === "storage" && <StoragePage />}
           {adminPage === "settings" && <SettingsPage />}
         </main>
       </div>

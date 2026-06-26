@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { name, description, status, priority, progress, budget, tags, ownerId } = body;
+    const { name, description, status, priority, progress, budget, tags, ownerId, startDate, endDate, requiresManualAcceptance } = body;
 
     if (!name) {
       return NextResponse.json({ message: "Project name is required" }, { status: 400 });
@@ -67,6 +67,9 @@ export async function POST(req: NextRequest) {
         tags: tags ? JSON.stringify(tags) : "[]",
         createdById: auth.userId,
         ownerId: ownerId || null,
+        ...(startDate && { startDate: new Date(startDate) }),
+        ...(endDate && { endDate: new Date(endDate) }),
+        ...(requiresManualAcceptance !== undefined && { requiresManualAcceptance }),
       },
     });
 

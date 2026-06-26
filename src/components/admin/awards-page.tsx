@@ -19,26 +19,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Trophy, Award, Star } from "lucide-react";
+import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-// ============ TYPES ============
-
-interface EmployeeOption {
-  id: string;
-  fullName: string;
-  email: string;
-  department?: string;
-}
+// ============ FORM TYPES ============
 
 interface AwardFormData {
   targetType: string;
@@ -51,7 +38,6 @@ interface AwardFormData {
 
 export function AwardsPage() {
   const [awards, setAwards] = useState<AwardPoint[]>([]);
-  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AwardFormData>({
@@ -73,19 +59,9 @@ export function AwardsPage() {
     }
   }, []);
 
-  const fetchEmployees = useCallback(async () => {
-    try {
-      const data = await api.get<EmployeeOption[]>("/api/awards/employees");
-      setEmployees(data);
-    } catch {
-      toast.error("Failed to load employees");
-    }
-  }, []);
-
   useEffect(() => {
     fetchAwards();
-    fetchEmployees();
-  }, [fetchAwards, fetchEmployees]);
+  }, [fetchAwards]);
 
   const handleAward = async () => {
     if (form.targetType === "individual" && !form.employeeId) {
@@ -159,19 +135,13 @@ export function AwardsPage() {
             </div>
             {form.targetType === "individual" && (
               <div className="space-y-2">
-                <Label htmlFor="award-employee">Employee</Label>
-                <Select value={form.employeeId} onValueChange={(val) => setForm({ ...form, employeeId: val })}>
-                  <SelectTrigger id="award-employee">
-                    <SelectValue placeholder="Select employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.fullName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Employee</Label>
+                <EmployeeSearchDropdown
+                  value={form.employeeId}
+                  onChange={(id) => setForm((prev) => ({ ...prev, employeeId: id }))}
+                  placeholder="Search employee..."
+                  disabled={form.targetType !== "individual"}
+                />
               </div>
             )}
             <div className="space-y-2">

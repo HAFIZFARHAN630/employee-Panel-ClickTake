@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
-import type { AgreementTemplate } from "@/lib/types";
+import type { AgreementTemplate, Department, EmployeeSignature } from "@/lib/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Download, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -71,6 +72,7 @@ interface AgreementFormData {
   applicableDepartments: string;
   version: string;
   isActive: boolean;
+  departmentId: string;
 }
 
 const emptyForm: AgreementFormData = {
@@ -80,6 +82,7 @@ const emptyForm: AgreementFormData = {
   applicableDepartments: "",
   version: "1.0",
   isActive: true,
+  departmentId: "",
 };
 
 // ============ COMPONENT ============
@@ -93,6 +96,12 @@ export function AgreementsPage() {
   const [deletingAgreement, setDeletingAgreement] = useState<AgreementTemplate | null>(null);
   const [form, setForm] = useState<AgreementFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [signaturesDialogOpen, setSignaturesDialogOpen] = useState(false);
+  const [signaturesAgreement, setSignaturesAgreement] = useState<AgreementTemplate | null>(null);
+  const [signatures, setSignatures] = useState<(EmployeeSignature & { employee?: { user: { fullName: string; email: string } } })[]>([]);
+  const [signaturesLoading, setSignaturesLoading] = useState(false);
+  const [printAgreement, setPrintAgreement] = useState<AgreementTemplate | null>(null);
 
   const fetchAgreements = useCallback(async () => {
     try {
@@ -108,6 +117,7 @@ export function AgreementsPage() {
 
   useEffect(() => {
     fetchAgreements();
+    api.get<Department[]>("/api/departments").then(setDepartments).catch(() => {});
   }, [fetchAgreements]);
 
   const handleCreate = () => {
@@ -125,6 +135,7 @@ export function AgreementsPage() {
       applicableDepartments: parseList(agreement.applicableDepartments).join(", "),
       version: agreement.version,
       isActive: agreement.isActive,
+      departmentId: (agreement as unknown as Record<string, unknown>).departmentId as string || "",
     });
     setDialogOpen(true);
   };
@@ -168,6 +179,31 @@ export function AgreementsPage() {
       toast.error("Failed to delete agreement");
     }
   };
+
+  const handleViewSignatures = async (agreement: AgreementTemplate) => {
+    setSignaturesAgreement(agreement);
+    setSignaturesDialogOpen(true);
+    setSignaturesLoading(true);
+    try {
+      const data = await api.get<(EmployeeSignature & { employee?: { user: { fullName: string; email: string } } })[]>(`/api/agreements/${agreement.id}/signatures`);
+      setSignatures(data || []);
+    } catch {
+      setSignatures([]);
+    } finally {
+      setSignaturesLoading(false);
+    }
+  };
+
+  const handlePrintAgreement = (agreement: AgreementTemplate) => {
+    setPrintAgreement(agreement);
+    setTimeout(() => window.print(), 100);
+  };
+
+  const sigCount = (agreement: AgreementTemplate) =>
+    ((agreement as unknown as Record<string, unknown>)._count as { signatures: number } | undefined)?.signatures || 0;
+
+  const deptName = (agreement: AgreementTemplate) =>
+    ((agreement as unknown as Record<string, unknown>).department as { name: string } | undefined)?.name || null;
 
   return (
     <div className="space-y-6">
@@ -215,6 +251,7 @@ export function AgreementsPage() {
                     <TableHead>Title</TableHead>
                     <TableHead>Version</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Signatures</TableHead>
                     <TableHead className="hidden sm:table-cell">Roles / Depts</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -225,11 +262,23 @@ export function AgreementsPage() {
                     const depts = parseList(agreement.applicableDepartments);
                     return (
                       <TableRow key={agreement.id}>
-                        <TableCell className="font-medium">{agreement.title}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col gap-0.5">
+                            {agreement.title}
+                            {deptName(agreement) && (
+                              <span className="text-xs text-muted-foreground">{deptName(agreement)}</span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">v{agreement.version}</Badge>
                         </TableCell>
                         <TableCell>{getStatusBadge(agreement.isActive)}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="font-mono">
+                            Signatures: {sigCount(agreement)}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <div className="flex flex-wrap gap-1">
                             {roles.map((role) => (
@@ -249,6 +298,22 @@ export function AgreementsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleViewSignatures(agreement)}
+                              aria-label="View signatures"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handlePrintAgreement(agreement)}
+                              aria-label="Download PDF"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -347,6 +412,24 @@ export function AgreementsPage() {
               />
               <Label className="cursor-pointer">Active</Label>
             </div>
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select
+                value={form.departmentId}
+                onValueChange={(val) => setForm({ ...form, departmentId: val })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -380,6 +463,68 @@ export function AgreementsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Signatures Dialog */}
+      <Dialog open={signaturesDialogOpen} onOpenChange={setSignaturesDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Signatures - {signaturesAgreement?.title}</DialogTitle>
+            <DialogDescription>
+              {signaturesLoading
+                ? "Loading signatures..."
+                : `${signatures.length} signature${signatures.length !== 1 ? "s" : ""} recorded`}
+            </DialogDescription>
+          </DialogHeader>
+          {signaturesLoading ? (
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : signatures.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <p className="text-sm">No signatures recorded yet</p>
+            </div>
+          ) : (
+            <ScrollArea className="max-h-64 overflow-y-auto">
+              <div className="space-y-2">
+                {signatures.map((sig) => (
+                  <div key={sig.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div>
+                      <p className="text-sm font-medium">{sig.employee?.user?.fullName || "Unknown"}</p>
+                      <p className="text-xs text-muted-foreground">{sig.employee?.user?.email || ""}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(sig.signedAt), "MMM d, yyyy")}
+                      </p>
+                      {sig.signatureImageUrl && (
+                        <img src={sig.signatureImageUrl} alt="Signature" className="h-6 mt-1 ml-auto" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Print-friendly layout (hidden on screen, shown in print) */}
+      {printAgreement && (
+        <div className="hidden print:block print:p-8 print:text-black print:bg-white">
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-2xl font-bold mb-2">{printAgreement.title}</h1>
+            <p className="text-sm text-gray-500 mb-6">Version {printAgreement.version} | Generated on {format(new Date(), "MMMM d, yyyy")}</p>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed border-t border-b py-6 my-6">
+              {printAgreement.content}
+            </div>
+            <div className="text-xs text-gray-400 mt-8">
+              This document was generated from the Employee Management System.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

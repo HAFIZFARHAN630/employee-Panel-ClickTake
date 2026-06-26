@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { EmployeePage } from "@/lib/types";
 import { OverviewPage } from "./overview-page";
@@ -12,6 +13,9 @@ import { TimeTrackingPage } from "./time-tracking-page";
 import { AnnouncementsPage } from "./announcements-page";
 import { NotificationsPage } from "./notifications-page";
 import { SettingsPage } from "./settings-page";
+import { ChatPage } from "./chat-page";
+import { MySchedulePage } from "./my-schedule";
+import { AgreementsPage } from "./agreements-page";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +52,7 @@ import {
   FileText,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { KYCVerificationPopup } from "@/components/shared/kyc-verification-popup";
 
 interface NavItem {
   id: EmployeePage;
@@ -79,22 +84,28 @@ function SidebarContent({
   onNavigate,
   onLogout,
   userFullName,
+  branding,
 }: {
   currentPage: EmployeePage;
   onNavigate: (page: EmployeePage) => void;
   onLogout: () => void;
   userFullName: string;
+  branding: { logoUrl?: string; companyName?: string } | null;
 }) {
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-[#E0197A] to-[#7B2FBE] text-white">
-          <Building2 className="w-5 h-5" />
-        </div>
+        {branding?.logoUrl ? (
+          <img src={branding.logoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-cover" />
+        ) : (
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-[#E0197A] to-[#7B2FBE] text-white">
+            <Building2 className="w-5 h-5" />
+          </div>
+        )}
         <div>
           <h2 className="text-base font-bold tracking-tight leading-none">
-            EMS
+            {branding?.companyName || "EMS"}
           </h2>
           <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
             Employee Portal
@@ -158,6 +169,17 @@ function SidebarContent({
 export function EmployeeLayout() {
   const { user, employeePage, setEmployeePage, logout } = useAuth();
   const pageTitle = useMemo(() => getPageTitle(employeePage), [employeePage]);
+  const [branding, setBranding] = useState<{ logoUrl?: string; companyName?: string } | null>(null);
+
+  useEffect(() => {
+    api.get<Record<string, string>>("/api/branding").then((data) => {
+      let logoUrl: string | undefined;
+      if (data.logoUrls) {
+        try { const arr = JSON.parse(data.logoUrls); logoUrl = Array.isArray(arr) ? arr[0] : undefined; } catch {}
+      }
+      setBranding({ logoUrl, companyName: data.companyName });
+    }).catch(() => {});
+  }, []);
 
   const userFullName = user?.fullName ?? "User";
   const unreadCount = 3; // placeholder
@@ -171,6 +193,7 @@ export function EmployeeLayout() {
           onNavigate={setEmployeePage}
           onLogout={logout}
           userFullName={userFullName}
+          branding={branding}
         />
       </aside>
 
@@ -198,6 +221,7 @@ export function EmployeeLayout() {
                 }}
                 onLogout={logout}
                 userFullName={userFullName}
+                branding={branding}
               />
             </SheetContent>
           </Sheet>
@@ -289,12 +313,13 @@ export function EmployeeLayout() {
           {employeePage === "time-tracking" && <TimeTrackingPage />}
           {employeePage === "announcements" && <AnnouncementsPage />}
           {employeePage === "notifications" && <NotificationsPage />}
-          {employeePage === "chat" && <div className="p-6"><h2 className="text-xl font-bold">Chat</h2><p className="text-muted-foreground mt-2">Team and project communication channels.</p></div>}
-          {employeePage === "my-schedule" && <div className="p-6"><h2 className="text-xl font-bold">My Schedule</h2><p className="text-muted-foreground mt-2">View your upcoming shift schedule.</p></div>}
-          {employeePage === "agreements" && <div className="p-6"><h2 className="text-xl font-bold">Agreements</h2><p className="text-muted-foreground mt-2">View and sign agreement templates.</p></div>}
+          {employeePage === "chat" && <ChatPage />}
+          {employeePage === "my-schedule" && <MySchedulePage />}
+          {employeePage === "agreements" && <AgreementsPage />}
           {employeePage === "settings" && <SettingsPage />}
         </main>
       </div>
+      <KYCVerificationPopup />
     </div>
   );
 }

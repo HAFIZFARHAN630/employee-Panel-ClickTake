@@ -64,6 +64,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Add creator as admin member
+    await db.chatMember.create({
+      data: {
+        channelId: channel.id,
+        userId: auth.userId,
+        role: "admin",
+      },
+    });
+
     return NextResponse.json({
       id: channel.id,
       name: channel.name,

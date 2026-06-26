@@ -37,8 +37,23 @@ function getNotifBorder(type: string): string {
   return "border-l-muted-foreground";
 }
 
+const EMPLOYEE_ACTION_MAP: Record<string, string> = {
+  "employee:overview": "overview",
+  "employee:projects": "projects",
+  "employee:attendance": "attendance",
+  "employee:leaves": "leaves",
+  "employee:time-tracking": "time-tracking",
+  "employee:notifications": "notifications",
+  "employee:announcements": "announcements",
+  "employee:chat": "chat",
+  "employee:my-schedule": "my-schedule",
+  "employee:agreements": "agreements",
+  "employee:settings": "settings",
+  "employee:profile": "profile",
+};
+
 export function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, setEmployeePage } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
@@ -47,11 +62,8 @@ export function NotificationsPage() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const res = await api.get<Notification[]>("/api/notifications", {
-        userId: user.id,
-      });
+      const res = await api.get<Notification[]>("/api/notifications/my");
       const list = Array.isArray(res) ? res : [];
-      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       setNotifications(list);
     } catch {
       // ignore
@@ -184,6 +196,11 @@ export function NotificationsPage() {
                       : ""
                   }`}
                   onClick={() => {
+                    const actionUrl = (notif as Record<string, unknown>).actionUrl as string | undefined;
+                    if (actionUrl) {
+                      const page = EMPLOYEE_ACTION_MAP[actionUrl];
+                      if (page) setEmployeePage(page as never);
+                    }
                     if (!notif.isRead) markAsRead(notif.id);
                   }}
                 >

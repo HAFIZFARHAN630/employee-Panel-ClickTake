@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
     if (!settings) {
       settings = await db.brandingSettings.create({
         data: {
+          companyName: "",
+          tagline: "",
           logoUrls: "[]",
           officeLocations: "[]",
           contactEmails: "[]",
@@ -48,6 +50,8 @@ export async function PUT(req: NextRequest) {
     let settings = await db.brandingSettings.findFirst();
 
     const data = {
+      ...(body.companyName !== undefined && { companyName: body.companyName }),
+      ...(body.tagline !== undefined && { tagline: body.tagline }),
       ...(body.logoUrls !== undefined && { logoUrls: typeof body.logoUrls === "string" ? body.logoUrls : JSON.stringify(body.logoUrls) }),
       ...(body.officeLocations !== undefined && { officeLocations: typeof body.officeLocations === "string" ? body.officeLocations : JSON.stringify(body.officeLocations) }),
       ...(body.contactEmails !== undefined && { contactEmails: typeof body.contactEmails === "string" ? body.contactEmails : JSON.stringify(body.contactEmails) }),
@@ -62,7 +66,8 @@ export async function PUT(req: NextRequest) {
     } else {
       settings = await db.brandingSettings.create({
         data: {
-          ...data,
+          companyName: (data.companyName as string) || "",
+          tagline: (data.tagline as string) || "",
           logoUrls: (data.logoUrls as string) || "[]",
           officeLocations: (data.officeLocations as string) || "[]",
           contactEmails: (data.contactEmails as string) || "[]",

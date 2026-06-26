@@ -37,16 +37,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Plus, Pencil, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
 
 // ============ HELPERS ============
 
@@ -333,16 +327,24 @@ export function ShiftsPage() {
                 </div>
               </RadioGroup>
             </div>
-            {form.applicableType !== "office" && (
+            {form.applicableType === "department" && (
               <div className="space-y-2">
-                <Label htmlFor="applicable-ids">
-                  {form.applicableType === "department" ? "Department IDs" : "Employee IDs"} (comma-separated)
-                </Label>
+                <Label htmlFor="applicable-ids">Department IDs (comma-separated)</Label>
                 <Input
                   id="applicable-ids"
                   value={form.applicableIds}
                   onChange={(e) => setForm({ ...form, applicableIds: e.target.value })}
-                  placeholder={form.applicableType === "department" ? "dept-1, dept-2" : "emp-1, emp-2"}
+                  placeholder="dept-1, dept-2"
+                />
+              </div>
+            )}
+            {form.applicableType === "individual" && (
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <EmployeeSearchDropdown
+                  value={form.applicableIds}
+                  onChange={(id) => setForm({ ...form, applicableIds: id })}
+                  placeholder="Search employee..."
                 />
               </div>
             )}

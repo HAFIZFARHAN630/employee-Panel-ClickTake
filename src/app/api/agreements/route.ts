@@ -10,6 +10,10 @@ export async function GET(req: NextRequest) {
     const templates = await db.agreementTemplate.findMany({
       where: { isActive: true },
       orderBy: { createdAt: "desc" },
+      include: {
+        _count: { select: { signatures: true } },
+        department: { select: { name: true } },
+      },
     });
 
     return NextResponse.json(
@@ -19,6 +23,9 @@ export async function GET(req: NextRequest) {
         applicableDepartments: t.applicableDepartments,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
+        _count: t._count,
+        department: t.department,
+        departmentId: t.departmentId,
       }))
     );
   } catch (error) {
@@ -34,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
     const body = await req.json();
-    const { title, content, applicableRoles, applicableDepartments, version, isActive } = body;
+    const { title, content, applicableRoles, applicableDepartments, version, isActive, departmentId } = body;
 
     if (!title) return NextResponse.json({ message: "Title is required" }, { status: 400 });
 
@@ -54,6 +61,7 @@ export async function POST(req: NextRequest) {
         applicableDepartments: JSON.stringify(deptsArr),
         version: version || "1.0",
         isActive: isActive !== false,
+        departmentId: departmentId || null,
       },
     });
 

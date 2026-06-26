@@ -40,7 +40,7 @@ export async function POST(
 
     const { id } = await params;
     const body = await req.json();
-    const { title, description, sortOrder, tasks: batchTasks } = body;
+    const { title, description, sortOrder, assignedTo, techStack, customPrompt, phase, estimatedHours, tasks: batchTasks } = body;
 
     // Support batch creation
     if (batchTasks && Array.isArray(batchTasks)) {
@@ -85,6 +85,11 @@ export async function POST(
         title,
         description: description || "",
         sortOrder: sortOrder ?? (maxOrder ? maxOrder.sortOrder + 1 : 0),
+        assignedTo: Array.isArray(assignedTo) ? JSON.stringify(assignedTo) : (assignedTo || null),
+        techStack: techStack || "",
+        customPrompt: customPrompt || "",
+        phase: phase || "",
+        estimatedHours: estimatedHours ?? null,
       },
     });
 

@@ -199,6 +199,7 @@ export interface ActivityLog {
   section: string;
   details: string;
   createdAt: string;
+  user?: { fullName: string; email: string } | null;
 }
 
 // ============ NEW TYPES ============
@@ -278,11 +279,13 @@ export interface Asset {
 
 export interface BrandingSettings {
   id: string;
-  logoUrls: string;
+  companyName: string;
+  tagline: string;
+  logoUrls: string | string[];
   officeLocations: string;
   contactEmails: string;
   contactPhones: string;
-  socialMediaLinks: string;
+  socialMediaLinks: string | Record<string, string>;
   primaryColor: string;
   secondaryColor: string;
   createdAt: string;
@@ -373,7 +376,8 @@ export type AdminPage =
   | "integrations"
   | "business-data"
   | "agreements"
-  | "chat";
+  | "chat"
+  | "storage";
 
 export type EmployeePage =
   | "overview"

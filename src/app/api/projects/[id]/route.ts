@@ -59,6 +59,9 @@ export async function PUT(
         ...(body.budget !== undefined && { budget: body.budget }),
         ...(body.tags !== undefined && { tags: typeof body.tags === "string" ? body.tags : JSON.stringify(body.tags) }),
         ...(body.ownerId !== undefined && { ownerId: body.ownerId }),
+        ...(body.startDate !== undefined && { startDate: body.startDate ? new Date(body.startDate) : null }),
+        ...(body.endDate !== undefined && { endDate: body.endDate ? new Date(body.endDate) : null }),
+        ...(body.requiresManualAcceptance !== undefined && { requiresManualAcceptance: body.requiresManualAcceptance }),
       },
     });
 

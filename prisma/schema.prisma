@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -58,6 +58,7 @@ model User {
   verificationRecords VerificationRecord[]
   reviewedVerifications VerificationRecord[] @relation("ReviewerRel")
   awardedPoints     AwardPoint[]      @relation("AwardedByRel")
+  chatMemberships    ChatMember[]
 
   @@map("users")
 }
@@ -113,6 +114,9 @@ model Project {
   tenantId      String?  @map("tenant_id")
   createdById   String?  @map("created_by")
   ownerId       String?  @map("owner_id")
+  startDate              DateTime? @map("start_date")
+  endDate                DateTime? @map("end_date")
+  requiresManualAcceptance Boolean  @default(false) @map("requires_manual_acceptance")
   isDuplicateOf String?  @map("is_duplicate_of")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -136,6 +140,8 @@ model ProjectTask {
   phase         String   @default("")
   estimatedHours Float?  @map("estimated_hours")
   assignedTo    String?  @map("assigned_to")
+  techStack     String   @default("") @map("tech_stack")
+  customPrompt  String   @default("") @map("custom_prompt")
   sortOrder     Int      @default(0) @map("sort_order")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -351,10 +357,12 @@ model AgreementTemplate {
   applicableDepartments String   @default("[]") @map("applicable_departments")
   version               String   @default("1.0")
   isActive              Boolean  @default(true) @map("is_active")
+  departmentId          String?  @map("department_id")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
   signatures EmployeeSignature[]
+  department Department? @relation(fields: [departmentId], references: [id])
 
   @@map("agreement_templates")
 }
@@ -446,6 +454,8 @@ model Asset {
 // ============ BRANDING SETTINGS ============
 model BrandingSettings {
   id                String   @id @default(uuid())
+  companyName       String   @default("") @map("company_name")
+  tagline           String   @default("") @map("tagline")
   logoUrls          String   @default("[]") @map("logo_urls")
   officeLocations   String   @default("[]") @map("office_locations")
   contactEmails     String   @default("[]") @map("contact_emails")
@@ -506,6 +516,8 @@ model Department {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  agreements AgreementTemplate[]
+
   @@map("departments")
 }
 
@@ -519,6 +531,7 @@ model ChatChannel {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   messages ChatMessage[]
+  members  ChatMember[]
 
   @@map("chat_channels")
 }
@@ -534,6 +547,21 @@ model ChatMessage {
   channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@map("chat_messages")
+}
+
+// ============ CHAT MEMBER ============
+model ChatMember {
+  id        String   @id @default(uuid())
+  channelId String   @map("channel_id")
+  userId    String   @map("user_id")
+  role      String   @default("member")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@map("chat_members")
 }
 
 // ============ INTEGRATION ============

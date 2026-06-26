@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
+import { encryptApiKey } from "@/lib/crypto-utils";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       data: {
         ...(body.modelName !== undefined && { modelName: body.modelName }),
         ...(body.provider !== undefined && { provider: body.provider }),
-        ...(body.apiKey !== undefined && { apiKey: body.apiKey }),
+        ...(body.apiKey !== undefined && { apiKey: body.apiKey ? encryptApiKey(body.apiKey) : "" }),
         ...(body.purpose !== undefined && { purpose: body.purpose }),
         ...(body.isActive !== undefined && { isActive: body.isActive }),
       },

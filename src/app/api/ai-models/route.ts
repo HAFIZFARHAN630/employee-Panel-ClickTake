@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
+import { encryptApiKey } from "@/lib/crypto-utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
       data: {
         modelName,
         provider: provider || "openai",
-        apiKey: apiKey || "",
+        apiKey: apiKey ? encryptApiKey(apiKey) : "",
         purpose: purpose || "",
         isActive: isActive !== false,
       },

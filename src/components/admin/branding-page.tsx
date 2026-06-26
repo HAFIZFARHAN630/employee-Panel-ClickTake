@@ -46,7 +46,7 @@ interface BrandingFormState {
   officeLocations: { address: string; lat: string; lng: string }[];
   contactEmails: string[];
   contactPhones: string[];
-  socialMedia: { facebook: string; twitter: string; linkedin: string; instagram: string; youtube: string; github: string };
+  socialMedia: { facebook: string; twitter: string; linkedin: string; instagram: string; youtube: string; github: string; tiktokUrl: string; pinterestUrl: string; youtubeUrl: string; linkedinCompanyUrl: string; blogUrl: string };
   primaryColor: string;
   secondaryColor: string;
 }
@@ -56,7 +56,7 @@ const defaultForm: BrandingFormState = {
   officeLocations: [{ address: "", lat: "", lng: "" }],
   contactEmails: [""],
   contactPhones: [""],
-  socialMedia: { facebook: "", twitter: "", linkedin: "", instagram: "", youtube: "", github: "" },
+  socialMedia: { facebook: "", twitter: "", linkedin: "", instagram: "", youtube: "", github: "", tiktokUrl: "", pinterestUrl: "", youtubeUrl: "", linkedinCompanyUrl: "", blogUrl: "" },
   primaryColor: "#E0197A",
   secondaryColor: "#7B2FBE",
 };
@@ -85,7 +85,7 @@ export function BrandingPage() {
         contactPhones: parseJsonString<string>(data.contactPhones).length > 0
           ? parseJsonString<string>(data.contactPhones)
           : [""],
-        socialMedia: { facebook: "", twitter: "", linkedin: "", instagram: "", youtube: "", github: "", ...parseJsonObject<Record<string, string>>(data.socialMediaLinks) },
+        socialMedia: { facebook: "", twitter: "", linkedin: "", instagram: "", youtube: "", github: "", tiktokUrl: "", pinterestUrl: "", youtubeUrl: "", linkedinCompanyUrl: "", blogUrl: "", ...parseJsonObject<Record<string, string>>(data.socialMediaLinks) },
         primaryColor: data.primaryColor || "#E0197A",
         secondaryColor: data.secondaryColor || "#7B2FBE",
       });
@@ -490,6 +490,61 @@ export function BrandingPage() {
                   setForm({ ...form, socialMedia: { ...form.socialMedia, github: e.target.value } })
                 }
                 placeholder="https://github.com/company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-tiktok">TikTok</Label>
+              <Input
+                id="social-tiktok"
+                value={form.socialMedia.tiktokUrl}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, tiktokUrl: e.target.value } })
+                }
+                placeholder="https://tiktok.com/@company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-pinterest">Pinterest</Label>
+              <Input
+                id="social-pinterest"
+                value={form.socialMedia.pinterestUrl}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, pinterestUrl: e.target.value } })
+                }
+                placeholder="https://pinterest.com/company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-youtube-url">YouTube URL</Label>
+              <Input
+                id="social-youtube-url"
+                value={form.socialMedia.youtubeUrl}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, youtubeUrl: e.target.value } })
+                }
+                placeholder="https://youtube.com/company"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-linkedin-company">LinkedIn Company</Label>
+              <Input
+                id="social-linkedin-company"
+                value={form.socialMedia.linkedinCompanyUrl}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, linkedinCompanyUrl: e.target.value } })
+                }
+                placeholder="https://linkedin.com/company/example"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="social-blog">Blog</Label>
+              <Input
+                id="social-blog"
+                value={form.socialMedia.blogUrl}
+                onChange={(e) =>
+                  setForm({ ...form, socialMedia: { ...form.socialMedia, blogUrl: e.target.value } })
+                }
+                placeholder="https://blog.company.com"
               />
             </div>
           </div>

@@ -86,10 +86,10 @@ function parseDetails(detailsStr: string): Record<string, unknown> {
   return {};
 }
 
-function getInitials(email: string): string {
-  return email
-    .split("@")[0]
-    .split(".")
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
     .map((w) => w[0])
     .join("")
     .slice(0, 2)
@@ -223,7 +223,7 @@ export function ActivityLogPage() {
                 const sectionConf = SECTION_CONFIG[log.section] ?? SECTION_CONFIG.settings;
                 const details = parseDetails(log.details);
                 const isSystem = !log.userId;
-                const email = isSystem ? "System" : log.userEmail || "Unknown";
+                const displayName = isSystem ? "System" : log.user?.fullName || log.user?.email || "Unknown";
 
                 return (
                   <div
@@ -264,7 +264,7 @@ export function ActivityLogPage() {
                               {isSystem ? (
                                 <Settings className="h-4 w-4" />
                               ) : (
-                                getInitials(email)
+                                getInitials(displayName)
                               )}
                             </AvatarFallback>
                           </Avatar>
@@ -283,7 +283,7 @@ export function ActivityLogPage() {
 
                             {/* User */}
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {email}
+                              {displayName}
                             </p>
 
                             {/* Details */}

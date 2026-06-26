@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import type { Notification, User } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
+import type { Notification, User, AdminPage } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ import {
   CalendarOff,
   Megaphone,
   Bell,
+  ExternalLink,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -105,7 +107,36 @@ interface NotificationWithUser extends Notification {
   user?: { id: string; fullName: string; email: string } | null;
 }
 
+const ACTION_URL_MAP: Record<string, AdminPage> = {
+  "admin:dashboard": "dashboard",
+  "admin:users": "users",
+  "admin:projects": "projects",
+  "admin:assignments": "assignments",
+  "admin:attendance": "attendance",
+  "admin:leaves": "leaves",
+  "admin:time-tracking": "time-tracking",
+  "admin:notifications": "notifications",
+  "admin:announcements": "announcements",
+  "admin:rbac": "rbac",
+  "admin:activity-log": "activity-log",
+  "admin:settings": "settings",
+  "admin:verification": "verification",
+  "admin:agreements": "agreements",
+  "admin:chat": "chat",
+  "admin:branding": "branding",
+  "admin:integrations": "integrations",
+  "admin:business-data": "business-data",
+  "admin:departments": "departments",
+  "admin:shifts": "shifts",
+  "admin:ai-config": "ai-config",
+  "admin:hr-training": "hr-training",
+  "admin:awards": "awards",
+  "admin:assets": "assets",
+  "admin:live-tracking": "live-tracking",
+};
+
 export function NotificationsPage() {
+  const { setAdminPage } = useAuth();
   const [notifications, setNotifications] = useState<NotificationWithUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,6 +214,19 @@ export function NotificationsPage() {
       toast.error("Failed to mark all as read");
     } finally {
       setMarkingAll(false);
+    }
+  };
+
+  const handleNotificationClick = async (notification: NotificationWithUser) => {
+    const url = (notification as Record<string, unknown>).actionUrl as string | undefined;
+    if (!url) return;
+    const page = ACTION_URL_MAP[url];
+    if (page) setAdminPage(page);
+    if (!notification.isRead) {
+      api.patch(`/api/notifications/${notification.id}`).catch(() => {});
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n))
+      );
     }
   };
 
@@ -276,7 +320,8 @@ export function NotificationsPage() {
               return (
                 <Card
                   key={notification.id}
-                  className={`border-l-4 ${config.border} transition-shadow hover:shadow-sm`}
+                  className={`border-l-4 ${config.border} transition-shadow hover:shadow-sm ${notification.actionUrl ? 'cursor-pointer hover:bg-accent/30' : ''}`}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <CardContent className="p-4 flex items-start gap-3">
                     <div className={`mt-0.5 shrink-0 ${config.color}`}>
@@ -310,6 +355,9 @@ export function NotificationsPage() {
                           <span className="text-xs text-muted-foreground">
                             {notification.user.fullName} ({notification.user.email})
                           </span>
+                        )}
+                        {notification.actionUrl && (
+                          <ExternalLink className="h-3 w-3 text-muted-foreground" />
                         )}
                       </div>
                     </div>
