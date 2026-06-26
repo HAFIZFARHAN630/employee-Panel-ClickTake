@@ -43,6 +43,9 @@ import {
   LogOut,
   User,
   Building2,
+  MessageSquare,
+  CalendarDays,
+  FileText,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -60,6 +63,9 @@ const employeeNavItems: NavItem[] = [
   { id: "time-tracking", label: "Time Tracking", icon: Clock },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "announcements", label: "Announcements", icon: Megaphone },
+  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "my-schedule", label: "My Schedule", icon: CalendarDays },
+  { id: "agreements", label: "Agreements", icon: FileText },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -283,6 +289,9 @@ export function EmployeeLayout() {
           {employeePage === "time-tracking" && <TimeTrackingPage />}
           {employeePage === "announcements" && <AnnouncementsPage />}
           {employeePage === "notifications" && <NotificationsPage />}
+          {employeePage === "chat" && <div className="p-6"><h2 className="text-xl font-bold">Chat</h2><p className="text-muted-foreground mt-2">Team and project communication channels.</p></div>}
+          {employeePage === "my-schedule" && <div className="p-6"><h2 className="text-xl font-bold">My Schedule</h2><p className="text-muted-foreground mt-2">View your upcoming shift schedule.</p></div>}
+          {employeePage === "agreements" && <div className="p-6"><h2 className="text-xl font-bold">Agreements</h2><p className="text-muted-foreground mt-2">View and sign agreement templates.</p></div>}
           {employeePage === "settings" && <SettingsPage />}
         </main>
       </div>

@@ -309,6 +309,16 @@ export interface HRTrainingData {
   updatedAt: string;
 }
 
+export interface Department { id: string; name: string; description: string; isActive: boolean; employeeCount?: number; createdAt: string; }
+
+export interface ChatChannel { id: string; name: string; type: string; projectId: string | null; createdAt: string; lastMessage?: string; }
+
+export interface ChatMessage { id: string; channelId: string; senderId: string; content: string; senderName?: string; createdAt: string; }
+
+export interface Integration { id: string; name: string; provider: string; type: string; webhookUrl: string; isActive: boolean; events: string; createdAt: string; }
+
+export interface BusinessData { id: string; businessName: string; address: string; city: string; postalCode: string; country: string; contactNumber: string; email: string; website: string; googleMapLink: string; gmbProfileLink: string; openingHours: string; socialMedia: string; services: string; targetAreas: string; shortDescription: string; longDescription: string; workTargets: string; hashtags: string; seoKeywords: string; createdAt: string; updatedAt: string; }
+
 // ============ DASHBOARD STATS ============
 
 export interface DashboardStats {
@@ -340,12 +350,14 @@ export type AppView = "login" | "signup" | "forgot-password" | "reset-password" 
 export type AdminPage = 
   | "dashboard"
   | "users"
+  | "departments"
   | "projects"
   | "workflows"
   | "assignments"
   | "attendance"
   | "leaves"
   | "time-tracking"
+  | "live-tracking"
   | "notifications"
   | "announcements"
   | "rbac"
@@ -358,7 +370,10 @@ export type AdminPage =
   | "ai-config"
   | "hr-training"
   | "branding"
-  | "agreements";
+  | "integrations"
+  | "business-data"
+  | "agreements"
+  | "chat";
 
 export type EmployeePage =
   | "overview"
@@ -369,4 +384,7 @@ export type EmployeePage =
   | "time-tracking"
   | "announcements"
   | "notifications"
-  | "settings";
+  | "settings"
+  | "chat"
+  | "my-schedule"
+  | "agreements";

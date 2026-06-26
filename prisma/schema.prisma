@@ -496,3 +496,85 @@ model HRTrainingData {
 
   @@map("hr_training_data")
 }
+
+// ============ DEPARTMENT ============
+model Department {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @default("")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("departments")
+}
+
+// ============ CHAT CHANNEL ============
+model ChatChannel {
+  id         String   @id @default(uuid())
+  name       String
+  type       String   @default("team")
+  projectId  String?  @map("project_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  messages ChatMessage[]
+
+  @@map("chat_channels")
+}
+
+// ============ CHAT MESSAGE ============
+model ChatMessage {
+  id         String   @id @default(uuid())
+  channelId  String   @map("channel_id")
+  senderId   String   @map("sender_id")
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+// ============ INTEGRATION ============
+model Integration {
+  id         String   @id @default(uuid())
+  name       String
+  provider   String   @default("")
+  type       String   @default("")
+  webhookUrl String   @default("") @map("webhook_url")
+  isActive   Boolean  @default(true) @map("is_active")
+  events     String   @default("[]")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("integrations")
+}
+
+// ============ BUSINESS DATA ============
+model BusinessData {
+  id              String   @id @default(uuid())
+  businessName    String   @default("") @map("business_name")
+  address         String   @default("")
+  city            String   @default("")
+  postalCode      String   @default("") @map("postal_code")
+  country         String   @default("")
+  contactNumber   String   @default("") @map("contact_number")
+  email           String   @default("")
+  website         String   @default("")
+  googleMapLink   String   @default("") @map("google_map_link")
+  gmbProfileLink  String   @default("") @map("gmb_profile_link")
+  openingHours    String   @default("") @map("opening_hours")
+  socialMedia     String   @default("{}")
+  services        String   @default("[]")
+  targetAreas     String   @default("[]") @map("target_areas")
+  shortDescription String  @default("") @map("short_description")
+  longDescription  String  @default("") @map("long_description")
+  workTargets     String   @default("{}") @map("work_targets")
+  hashtags        String   @default("[]")
+  seoKeywords     String   @default("[]") @map("seo_keywords")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("business_data")
+}

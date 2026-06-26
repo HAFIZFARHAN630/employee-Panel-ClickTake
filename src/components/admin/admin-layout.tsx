@@ -23,6 +23,11 @@ import { VerificationPage } from "./verification-page";
 import { AgreementsPage } from "./agreements-page";
 import { BrandingPage } from "./branding-page";
 import { SettingsPage } from "./settings-page";
+import { DepartmentsPage } from "./departments-page";
+import { LiveTrackingPage } from "./live-tracking-page";
+import { ChatPage } from "./chat-page";
+import { IntegrationsPage } from "./integrations-page";
+import { BusinessDataPage } from "./business-data-page";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +71,10 @@ import {
   Brain,
   GraduationCap,
   Palette,
+  Radio,
+  MessageSquare,
+  Webhook,
+  Store,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -78,6 +87,7 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "users", label: "Users", icon: Users },
+  { id: "departments", label: "Departments", icon: Building2 },
   { id: "awards", label: "Awards", icon: Trophy },
   { id: "assets", label: "Assets", icon: Package },
   { id: "projects", label: "Projects", icon: FolderKanban },
@@ -86,6 +96,7 @@ const adminNavItems: NavItem[] = [
   { id: "shifts", label: "Shifts", icon: Clock },
   { id: "leaves", label: "Leave Management", icon: CalendarOff },
   { id: "time-tracking", label: "Time Tracking", icon: Timer },
+  { id: "live-tracking", label: "Live Tracking", icon: Radio },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "rbac", label: "RBAC", icon: Shield },
@@ -94,7 +105,10 @@ const adminNavItems: NavItem[] = [
   { id: "activity-log", label: "Activity Log", icon: ScrollText },
   { id: "verification", label: "Verification", icon: ScanFace },
   { id: "agreements", label: "Agreements", icon: FileText },
+  { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "branding", label: "Branding", icon: Palette },
+  { id: "integrations", label: "Integrations", icon: Webhook },
+  { id: "business-data", label: "Business Data", icon: Store },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -329,6 +343,11 @@ export function AdminLayout() {
           {adminPage === "verification" && <VerificationPage />}
           {adminPage === "agreements" && <AgreementsPage />}
           {adminPage === "branding" && <BrandingPage />}
+          {adminPage === "departments" && <DepartmentsPage />}
+          {adminPage === "live-tracking" && <LiveTrackingPage />}
+          {adminPage === "chat" && <ChatPage />}
+          {adminPage === "integrations" && <IntegrationsPage />}
+          {adminPage === "business-data" && <BusinessDataPage />}
           {adminPage === "settings" && <SettingsPage />}
         </main>
       </div>
