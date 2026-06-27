@@ -2,13 +2,12 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { getStatusColor, getPriorityColor, formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import type {
   DashboardStats,
   ActivityLog,
   Project,
-  ProjectStatus,
-  ProjectPriority,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,15 +34,6 @@ import { formatDistanceToNow, format } from "date-fns";
 
 // ============ HELPERS ============
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 function getActionIcon(action: string) {
   const lower = action.toLowerCase();
   if (lower.includes("create") || lower.includes("add"))
@@ -55,36 +45,6 @@ function getActionIcon(action: string) {
   if (lower.includes("login") || lower.includes("auth"))
     return <Clock className="h-4 w-4 text-purple-500" />;
   return <Activity className="h-4 w-4 text-orange-500" />;
-}
-
-function getStatusColor(status: ProjectStatus) {
-  const map: Record<ProjectStatus, string> = {
-    active: "bg-green-100 text-green-700 border-green-200",
-    draft: "bg-gray-100 text-gray-700 border-gray-200",
-    on_hold: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    archived: "bg-red-100 text-red-700 border-red-200",
-  };
-  return map[status] || "bg-gray-100 text-gray-700";
-}
-
-function getPriorityColor(priority: ProjectPriority) {
-  const map: Record<ProjectPriority, string> = {
-    critical: "bg-red-100 text-red-700 border-red-200",
-    high: "bg-orange-100 text-orange-700 border-orange-200",
-    medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    low: "bg-green-100 text-green-700 border-green-200",
-  };
-  return map[priority] || "bg-gray-100 text-gray-700";
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 // ============ STAT CARD ============
@@ -263,13 +223,10 @@ export function DashboardPage() {
 
   const topProjects = projects.slice(0, 5);
 
-  const departmentAttendance = [
-    { name: "Engineering", rate: 94 },
-    { name: "Design", rate: 91 },
-    { name: "Marketing", rate: 87 },
-    { name: "Sales", rate: 89 },
-    { name: "HR", rate: 96 },
-  ];
+  // Dynamic attendance stats derived from dashboard stats
+  const attendanceRate = stats && stats.totalEmployees > 0
+    ? Math.round((stats.presentToday / stats.totalEmployees) * 100)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -282,28 +239,28 @@ export function DashboardPage() {
             title="Total Employees"
             value={stats?.totalEmployees ?? 0}
             icon={Users}
-            trend="+12% from last week"
+            trend={stats?.presentToday != null ? `${stats.presentToday} present today` : "—"}
             accent="pink"
           />
           <StatCard
             title="Active Projects"
             value={stats?.activeProjects ?? 0}
             icon={FolderKanban}
-            trend="+8% from last month"
+            trend={stats?.completedTasks != null ? `${stats.completedTasks} tasks done` : "—"}
             accent="purple"
           />
           <StatCard
             title="Pending Leaves"
             value={stats?.pendingLeaves ?? 0}
             icon={CalendarOff}
-            trend="-3% from last week"
+            trend="Awaiting approval"
             accent="blue"
           />
           <StatCard
             title="Pending Verifications"
             value={stats?.unverifiedFaces ?? 0}
             icon={UserCheck}
-            trend="Needs attention"
+            trend={stats?.unverifiedFaces > 0 ? "Needs attention" : "All verified"}
             accent="amber"
           />
         </div>
@@ -423,23 +380,43 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <UserCheck className="h-4 w-4" />
-              Attendance Summary
+              Today&apos;s Attendance
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {departmentAttendance.map((dept) => (
-                <div key={dept.name} className="space-y-2">
+            {loadingStats ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{dept.name}</span>
+                    <span className="font-medium">Present Today</span>
                     <span className="text-muted-foreground">
-                      {dept.rate}%
+                      {stats?.presentToday ?? 0} / {stats?.totalEmployees ?? 0}
                     </span>
                   </div>
-                  <Progress value={dept.rate} className="h-2" />
+                  <Progress value={attendanceRate} className="h-3" />
+                  <p className="text-xs text-muted-foreground text-center">
+                    {attendanceRate}% attendance rate today
+                  </p>
                 </div>
-              ))}
-            </div>
+                <Separator />
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-primary">{stats?.totalHoursThisWeek ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Hours This Week</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-primary">{stats?.completedTasks ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Tasks Completed</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

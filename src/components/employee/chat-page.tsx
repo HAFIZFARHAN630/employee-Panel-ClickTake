@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
+import { getInitials } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import type { ChatChannel, ChatMessage } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,14 +18,7 @@ function formatTime(dateStr: string): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+
 
 export function ChatPage() {
   const { user } = useAuth();
@@ -43,7 +37,7 @@ export function ChatPage() {
     async function fetchChannels() {
       try {
         const data = await api.get<ChatChannel[]>("/api/chat/channels");
-        if (!cancelled) setChannels(data);
+        if (!cancelled) setChannels(Array.isArray(data) ? data : []);
       } catch {
         // silently fail
       } finally {
@@ -59,7 +53,7 @@ export function ChatPage() {
     setLoadingMessages(true);
     try {
       const data = await api.get<ChatMessage[]>(`/api/chat/channels/${channelId}/messages`);
-      setMessages(data);
+      setMessages(Array.isArray(data) ? data : []);
     } catch {
       // silently fail
     } finally {

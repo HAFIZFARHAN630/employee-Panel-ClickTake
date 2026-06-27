@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { getStatusColor, getPriorityColor, formatCurrency, getStatusLabel } from "@/lib/utils";
 import type {
   Project,
   ProjectTask,
@@ -72,42 +73,6 @@ interface SimpleUser {
   fullName: string;
   email: string;
   employee?: { id: string } | null;
-}
-
-// ============ HELPERS ============
-
-function getStatusColor(status: ProjectStatus) {
-  const map: Record<ProjectStatus, string> = {
-    active: "bg-green-100 text-green-700 border-green-200",
-    draft: "bg-gray-100 text-gray-700 border-gray-200",
-    on_hold: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    archived: "bg-red-100 text-red-700 border-red-200",
-  };
-  return map[status] || "bg-gray-100 text-gray-700";
-}
-
-function getPriorityColor(priority: ProjectPriority) {
-  const map: Record<ProjectPriority, string> = {
-    critical: "bg-red-100 text-red-700 border-red-200",
-    high: "bg-orange-100 text-orange-700 border-orange-200",
-    medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    low: "bg-green-100 text-green-700 border-green-200",
-  };
-  return map[priority] || "bg-gray-100 text-gray-700";
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function getStatusLabel(status: string) {
-  return status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ============ FORM TYPES ============

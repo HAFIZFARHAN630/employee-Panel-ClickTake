@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { getStoredAuth } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -46,9 +47,12 @@ export function KYCVerificationPopup() {
       const formData = new FormData();
       formData.append("video", file);
 
+      const stored = getStoredAuth();
+      const token = stored?.token || "";
+
       const res = await fetch("/api/verification", {
         method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 

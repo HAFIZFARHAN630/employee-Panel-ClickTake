@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate, isAdmin } from "@/lib/auth-middleware";
+import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
 
+    const params = queryParams(req);
+    const where: Record<string, unknown> = {};
+
+    // If status filter is provided, use it; otherwise default to active for non-admins
+    if (params.status) {
+      where.status = params.status;
+    } else if (!isAdmin(auth)) {
+      where.status = "active";
+    }
+
     const announcements = await db.announcement.findMany({
-      where: { status: "active" },
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         createdBy: { select: { fullName: true } },

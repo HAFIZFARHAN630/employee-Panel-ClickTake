@@ -7,9 +7,22 @@ import { ForgotPasswordPage } from "@/components/auth/forgot-password-page";
 import { ResetPasswordPage } from "@/components/auth/reset-password-page";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { EmployeeLayout } from "@/components/employee/employee-layout";
+import { Loader2 } from "lucide-react";
 
 function AppRouter() {
-  const { appView } = useAuth();
+  const { appView, hydrating } = useAuth();
+
+  // Show a full-screen loader while restoring session from localStorage
+  if (hydrating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   switch (appView) {
     case "login":

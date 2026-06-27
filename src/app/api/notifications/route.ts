@@ -9,9 +9,15 @@ export async function GET(req: NextRequest) {
 
     const params = queryParams(req);
     const userId = params.userId || auth.userId;
+    const type = params.type;
+
+    const where: Record<string, unknown> = { userId };
+    if (type && type !== "all") {
+      where.notificationType = type;
+    }
 
     const notifications = await db.notification.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: "desc" },
     });
 
@@ -34,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { userId, message, notificationType, link } = body;
+    const { userId, message, notificationType, actionUrl } = body;
 
     if (!userId || !message) {
       return NextResponse.json({ message: "userId and message are required" }, { status: 400 });
@@ -45,7 +51,7 @@ export async function POST(req: NextRequest) {
         userId,
         message,
         notificationType: notificationType || "info",
-        link: link || "",
+        actionUrl: actionUrl || null,
       },
     });
 

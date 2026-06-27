@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import type { User, AppView, AdminPage, EmployeePage } from "./types";
-import { persistAuth, clearAuth } from "./api";
+import { persistAuth, clearAuth, getStoredAuth } from "./api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -13,6 +13,7 @@ interface AuthState {
   appView: AppView;
   adminPage: AdminPage;
   employeePage: EmployeePage;
+  hydrating: boolean;
 }
 
 interface LoginResult {
@@ -32,6 +33,13 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function getInitialView(user: User): AppView {
+  if (user.userType === "admin" || user.userType === "super_admin" || user.userType === "manager") {
+    return "admin";
+  }
+  return "employee";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -40,7 +48,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     appView: "login",
     adminPage: "dashboard",
     employeePage: "overview",
+    hydrating: true,
   });
+
+  // Restore session from localStorage on mount
+  useEffect(() => {
+    const stored = getStoredAuth();
+    if (stored?.token && stored?.user) {
+      const user = stored.user as User;
+      // Verify the token is still valid by calling /api/auth/me
+      fetch(`${API_BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${stored.token}` },
+      })
+        .then((res) => {
+          if (res.ok) return res.json();
+          throw new Error("Token invalid");
+        })
+        .then((freshUser) => {
+          setState({
+            user: freshUser,
+            token: stored.token,
+            isAuthenticated: true,
+            appView: getInitialView(freshUser),
+            adminPage: "dashboard",
+            employeePage: "overview",
+            hydrating: false,
+          });
+          // Update localStorage with fresh user data
+          persistAuth(freshUser, stored.token);
+        })
+        .catch(() => {
+          // Token expired or invalid — clear and show login
+          clearAuth();
+          setState((prev) => ({ ...prev, hydrating: false }));
+        });
+    } else {
+      queueMicrotask(() => {
+        setState((prev) => ({ ...prev, hydrating: false }));
+      });
+    }
+  }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
@@ -77,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       appView: "login",
       adminPage: "dashboard",
       employeePage: "overview",
+      hydrating: false,
     });
   }, []);
 

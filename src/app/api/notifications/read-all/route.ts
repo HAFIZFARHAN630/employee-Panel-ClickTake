@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { userId } = body;
+    const userId = body.userId || auth.userId;
 
     if (!userId) {
       return NextResponse.json({ message: "userId is required" }, { status: 400 });

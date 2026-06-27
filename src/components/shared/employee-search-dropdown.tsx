@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { X, Check, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { User } from "@/lib/types";
 
@@ -29,15 +29,7 @@ interface EmployeeSearchDropdownProps {
   disabled?: boolean;
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
+
 
 export function EmployeeSearchDropdown({
   value,
@@ -64,14 +56,13 @@ export function EmployeeSearchDropdown({
       setSelectedUser(existing);
       return;
     }
-    // Otherwise fetch just the selected user
+    // Otherwise fetch just the selected user by ID
     let cancelled = false;
     api
-      .get<{ users: User[] }>("/api/users", { limit: "1", search: "" })
+      .get<User>(`/api/users/${value}`)
       .then((res) => {
         if (!cancelled) {
-          const match = res.users?.find((u: User) => u.id === value) ?? null;
-          setSelectedUser(match);
+          setSelectedUser(res);
         }
       })
       .catch(() => {

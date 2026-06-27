@@ -17,10 +17,6 @@ import {
   eachDayOfInterval,
 } from "date-fns";
 
-interface ShiftWithDate extends Shift {
-  _date?: string;
-}
-
 export function MySchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -32,7 +28,7 @@ export function MySchedulePage() {
       setLoading(true);
       try {
         const data = await api.get<Shift[]>("/api/shifts", { my: "true" });
-        if (!cancelled) setShifts(data);
+        if (!cancelled) setShifts(Array.isArray(data) ? data : []);
       } catch {
         // silently fail
       } finally {

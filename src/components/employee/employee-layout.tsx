@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import type { EmployeePage } from "@/lib/types";
+import type { EmployeePage, Notification } from "@/lib/types";
 import { OverviewPage } from "./overview-page";
 import { ProfilePage } from "./profile-page";
 import { ProjectsPage } from "./projects-page";
@@ -182,7 +182,17 @@ export function EmployeeLayout() {
   }, []);
 
   const userFullName = user?.fullName ?? "User";
-  const unreadCount = 3; // placeholder
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    api.get<Notification[]>("/api/notifications", { userId: user.id, limit: "500" })
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setUnreadCount(list.filter((n) => !n.isRead).length);
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   return (
     <div className="min-h-screen flex bg-background">

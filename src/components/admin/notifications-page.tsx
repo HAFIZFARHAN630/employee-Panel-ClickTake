@@ -207,7 +207,7 @@ export function NotificationsPage() {
   const handleMarkAllRead = async () => {
     try {
       setMarkingAll(true);
-      await api.post("/api/notifications/mark-all-read");
+      await api.post("/api/notifications/read-all");
       toast.success("All notifications marked as read");
       fetchNotifications();
     } catch {

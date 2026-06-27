@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { getInitials, getUserTypeColor } from "@/lib/utils";
 import type { User, UserType } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,31 +66,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getInitials, getUserTypeColor } from "@/lib/utils";
 
 // ============ HELPERS ============
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
-function getUserTypeColor(type: UserType) {
-  const map: Record<UserType, string> = {
-    super_admin: "bg-red-100 text-red-700 border-red-200",
-    admin: "bg-orange-100 text-orange-700 border-orange-200",
-    manager: "bg-blue-100 text-blue-700 border-blue-200",
-    editor: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    viewer: "bg-gray-100 text-gray-600 border-gray-200",
-    employee: "bg-green-100 text-green-700 border-green-200",
-    freelancer: "bg-purple-100 text-purple-700 border-purple-200",
-    client: "bg-cyan-100 text-cyan-700 border-cyan-200",
-  };
-  return map[type] || "bg-gray-100 text-gray-700";
-}
 
 function getUserTypeLabel(type: UserType) {
   return type.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());

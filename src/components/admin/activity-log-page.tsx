@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { getInitials } from "@/lib/utils";
 import type { ActivityLog } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,15 +87,7 @@ function parseDetails(detailsStr: string): Record<string, unknown> {
   return {};
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+
 
 function formatDetailValue(val: unknown): string {
   if (val === null || val === undefined) return "—";
