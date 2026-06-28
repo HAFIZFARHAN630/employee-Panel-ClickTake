@@ -1,0 +1,1090 @@
+     1→"use client";
+     2→
+     3→import React, { useEffect, useState, useCallback } from "react";
+     4→import { api } from "@/lib/api";
+     5→import type {
+     6→  Project,
+     7→  ProjectTask,
+     8→  ProjectStatus,
+     9→  ProjectPriority,
+    10→  EmployeeProject,
+    11→} from "@/lib/types";
+    12→import {
+    13→  Card,
+    14→  CardContent,
+    15→  CardDescription,
+    16→  CardFooter,
+    17→  CardHeader,
+    18→  CardTitle,
+    19→} from "@/components/ui/card";
+    20→import { Button } from "@/components/ui/button";
+    21→import { Input } from "@/components/ui/input";
+    22→import { Label } from "@/components/ui/label";
+    23→import { Badge } from "@/components/ui/badge";
+    24→import { Skeleton } from "@/components/ui/skeleton";
+    25→import { Progress } from "@/components/ui/progress";
+    26→import { Checkbox } from "@/components/ui/checkbox";
+    27→import { Textarea } from "@/components/ui/textarea";
+    28→import { ScrollArea } from "@/components/ui/scroll-area";
+    29→import { Separator } from "@/components/ui/separator";
+    30→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    31→import {
+    32→  Dialog,
+    33→  DialogContent,
+    34→  DialogHeader,
+    35→  DialogTitle,
+    36→  DialogFooter,
+    37→  DialogDescription,
+    38→} from "@/components/ui/dialog";
+    39→import {
+    40→  Select,
+    41→  SelectContent,
+    42→  SelectItem,
+    43→  SelectTrigger,
+    44→  SelectValue,
+    45→} from "@/components/ui/select";
+    46→import {
+    47→  FolderKanban,
+    48→  Plus,
+    49→  Search,
+    50→  Sparkles,
+    51→  Eye,
+    52→  Pencil,
+    53→  X,
+    54→  Tag,
+    55→  CheckCircle2,
+    56→  Circle,
+    57→  Loader2,
+    58→  Users,
+    59→  DollarSign,
+    60→  ListTodo,
+    61→  Inbox,
+    62→  Trash2,
+    63→  Copy,
+    64→  UserPlus,
+    65→  Check,
+    66→} from "lucide-react";
+    67→
+    68→import { toast } from "sonner";
+    69→
+    70→interface SimpleUser {
+    71→  id: string;
+    72→  fullName: string;
+    73→  email: string;
+    74→  employee?: { id: string } | null;
+    75→}
+    76→
+    77→// ============ HELPERS ============
+    78→
+    79→function getStatusColor(status: ProjectStatus) {
+    80→  const map: Record<ProjectStatus, string> = {
+    81→    active: "bg-green-100 text-green-700 border-green-200",
+    82→    draft: "bg-gray-100 text-gray-700 border-gray-200",
+    83→    on_hold: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    84→    completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    85→    archived: "bg-red-100 text-red-700 border-red-200",
+    86→  };
+    87→  return map[status] || "bg-gray-100 text-gray-700";
+    88→}
+    89→
+    90→function getPriorityColor(priority: ProjectPriority) {
+    91→  const map: Record<ProjectPriority, string> = {
+    92→    critical: "bg-red-100 text-red-700 border-red-200",
+    93→    high: "bg-orange-100 text-orange-700 border-orange-200",
+    94→    medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    95→    low: "bg-green-100 text-green-700 border-green-200",
+    96→  };
+    97→  return map[priority] || "bg-gray-100 text-gray-700";
+    98→}
+    99→
+   100→function formatCurrency(amount: number) {
+   101→  return new Intl.NumberFormat("en-US", {
+   102→    style: "currency",
+   103→    currency: "USD",
+   104→    minimumFractionDigits: 0,
+   105→    maximumFractionDigits: 0,
+   106→  }).format(amount);
+   107→}
+   108→
+   109→function getStatusLabel(status: string) {
+   110→  return status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+   111→}
+   112→
+   113→// ============ FORM TYPES ============
+   114→
+   115→interface ProjectFormData {
+   116→  name: string;
+   117→  description: string;
+   118→  status: ProjectStatus;
+   119→  priority: ProjectPriority;
+   120→  budget: number;
+   121→  tags: string;
+   122→}
+   123→
+   124→const defaultProjectForm: ProjectFormData = {
+   125→  name: "",
+   126→  description: "",
+   127→  status: "draft",
+   128→  priority: "medium",
+   129→  budget: 0,
+   130→  tags: "",
+   131→};
+   132→
+   133→// ============ SKELETON ============
+   134→
+   135→function CardGridSkeleton() {
+   136→  return (
+   137→    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+   138→      {Array.from({ length: 6 }).map((_, i) => (
+   139→        <Card key={i}>
+   140→          <CardHeader className="pb-3">
+   141→            <Skeleton className="h-5 w-3/4" />
+   142→            <div className="flex gap-2 mt-2">
+   143→              <Skeleton className="h-5 w-16" />
+   144→              <Skeleton className="h-5 w-14" />
+   145→            </div>
+   146→          </CardHeader>
+   147→          <CardContent className="space-y-3">
+   148→            <Skeleton className="h-3 w-full" />
+   149→            <Skeleton className="h-3 w-2/3" />
+   150→            <Skeleton className="h-2 w-full" />
+   151→            <div className="flex gap-2">
+   152→              <Skeleton className="h-4 w-12" />
+   153→              <Skeleton className="h-4 w-12" />
+   154→            </div>
+   155→          </CardContent>
+   156→          <CardFooter className="pt-3">
+   157→            <div className="flex gap-2 w-full">
+   158→              <Skeleton className="h-9 flex-1" />
+   159→              <Skeleton className="h-9 flex-1" />
+   160→            </div>
+   161→          </CardFooter>
+   162→        </Card>
+   163→      ))}
+   164→    </div>
+   165→  );
+   166→}
+   167→
+   168→// ============ MAIN COMPONENT ============
+   169→
+   170→export function ProjectsPage() {
+   171→  // Data state
+   172→  const [projects, setProjects] = useState<Project[]>([]);
+   173→  const [loading, setLoading] = useState(true);
+   174→
+   175→  // Filter state
+   176→  const [searchQuery, setSearchQuery] = useState("");
+   177→  const [filterPriority, setFilterPriority] = useState<string>("all");
+   178→  const [activeTab, setActiveTab] = useState<string>("all");
+   179→
+   180→  // Create/Edit dialog state
+   181→  const [formDialogOpen, setFormDialogOpen] = useState(false);
+   182→  const [editingProject, setEditingProject] = useState<Project | null>(null);
+   183→  const [formData, setFormData] = useState<ProjectFormData>(defaultProjectForm);
+   184→  const [formErrors, setFormErrors] = useState<Partial<ProjectFormData>>({});
+   185→  const [submitting, setSubmitting] = useState(false);
+   186→
+   187→  // Detail dialog state
+   188→  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+   189→  const [detailProject, setDetailProject] = useState<Project | null>(null);
+   190→  const [detailTasks, setDetailTasks] = useState<ProjectTask[]>([]);
+   191→  const [detailAssignments, setDetailAssignments] = useState<EmployeeProject[]>([]);
+   192→  const [loadingDetail, setLoadingDetail] = useState(false);
+   193→  const [togglingTask, setTogglingTask] = useState<string | null>(null);
+   194→
+   195→  // Generate tasks state
+   196→  const [generatingTasks, setGeneratingTasks] = useState<string | null>(null);
+   197→
+   198→  // User search state for multi-employee assignment
+   199→  const [userSearchQuery, setUserSearchQuery] = useState("");
+   200→  const [userSearchResults, setUserSearchResults] = useState<SimpleUser[]>([]);
+   201→  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+   202→  const [selectedEmployeeNames, setSelectedEmployeeNames] = useState<Map<string, string>>(new Map());
+   203→  const [searchingUsers, setSearchingUsers] = useState(false);
+   204→  const [assigningEmployees, setAssigningEmployees] = useState(false);
+   205→
+   206→  // Delete state
+   207→  const [deletingProject, setDeletingProject] = useState<string | null>(null);
+   208→  const [duplicatingProject, setDuplicatingProject] = useState<string | null>(null);
+   209→
+   210→  // ============ FETCH ============
+   211→
+   212→  const fetchProjects = useCallback(async () => {
+   213→    setLoading(true);
+   214→    try {
+   215→      const params: Record<string, string> = {};
+   216→      if (searchQuery) params.search = searchQuery;
+   217→      if (filterPriority !== "all") params.priority = filterPriority;
+   218→      if (activeTab !== "all") params.status = activeTab;
+   219→
+   220→      const data = await api.get<Project[]>("/api/projects", params);
+   221→      setProjects(Array.isArray(data) ? data : []);
+   222→    } catch {
+   223→      setProjects([]);
+   224→    } finally {
+   225→      setLoading(false);
+   226→    }
+   227→  }, [searchQuery, filterPriority, activeTab]);
+   228→
+   229→  useEffect(() => {
+   230→    fetchProjects();
+   231→  }, [fetchProjects]);
+   232→
+   233→  // Debounce search
+   234→  useEffect(() => {
+   235→    const timer = setTimeout(() => {
+   236→      fetchProjects();
+   237→    }, 300);
+   238→    return () => clearTimeout(timer);
+   239→  }, [searchQuery]);
+   240→
+   241→  // ============ FILTERED PROJECTS ============
+   242→
+   243→  const filteredProjects = projects;
+   244→
+   245→  // ============ FORM HANDLERS ============
+   246→
+   247→  function openCreateDialog() {
+   248→    setEditingProject(null);
+   249→    setFormData(defaultProjectForm);
+   250→    setFormErrors({});
+   251→    setFormDialogOpen(true);
+   252→  }
+   253→
+   254→  function openEditDialog(project: Project) {
+   255→    setEditingProject(project);
+   256→    setFormData({
+   257→      name: project.name,
+   258→      description: project.description,
+   259→      status: project.status,
+   260→      priority: project.priority,
+   261→      budget: project.budget,
+   262→      tags: project.tags,
+   263→    });
+   264→    setFormErrors({});
+   265→    setFormDialogOpen(true);
+   266→  }
+   267→
+   268→  function validateForm(): boolean {
+   269→    const errors: Partial<ProjectFormData> = {};
+   270→    if (!formData.name.trim()) errors.name = "Project name is required";
+   271→    setFormErrors(errors);
+   272→    return Object.keys(errors).length === 0;
+   273→  }
+   274→
+   275→  async function handleFormSubmit() {
+   276→    if (!validateForm()) return;
+   277→
+   278→    setSubmitting(true);
+   279→    try {
+   280→      if (editingProject) {
+   281→        await api.put(`/api/projects/${editingProject.id}`, formData);
+   282→      } else {
+   283→        const newProject = await api.post<Project>("/api/projects", formData);
+   284→
+   285→        // Create assignments for selected employees
+   286→        if (selectedEmployeeIds.length > 0 && newProject?.id) {
+   287→          setAssigningEmployees(true);
+   288→          await Promise.all(
+   289→            selectedEmployeeIds.map((empId) =>
+   290→              api.post("/api/assignments", {
+   291→                employeeId: empId,
+   292→                projectId: newProject.id,
+   293→                status: "accepted",
+   294→              }).catch(() => {
+   295→                // Silently fail individual assignment errors
+   296→              })
+   297→            )
+   298→          );
+   299→          setAssigningEmployees(false);
+   300→        }
+   301→      }
+   302→      setFormDialogOpen(false);
+   303→      setSelectedEmployeeIds([]);
+   304→      fetchProjects();
+   305→    } catch {
+   306→      // silently handle
+   307→    } finally {
+   308→      setSubmitting(false);
+   309→      setAssigningEmployees(false);
+   310→    }
+   311→  }
+   312→
+   313→  // ============ DETAIL / TASKS ============
+   314→
+   315→  async function openDetailDialog(project: Project) {
+   316→    setDetailProject(project);
+   317→    setDetailTasks([]);
+   318→    setDetailAssignments([]);
+   319→    setDetailDialogOpen(true);
+   320→    setLoadingDetail(true);
+   321→
+   322→    try {
+   323→      const [tasksData, assignData] = await Promise.all([
+   324→        api.get<ProjectTask[]>(`/api/projects/${project.id}/tasks`),
+   325→        api.get<EmployeeProject[]>(`/api/projects/${project.id}/assignments`).catch(() => []),
+   326→      ]);
+   327→      setDetailTasks(Array.isArray(tasksData) ? tasksData : []);
+   328→      setDetailAssignments(Array.isArray(assignData) ? assignData : []);
+   329→    } catch {
+   330→      // silently handle
+   331→    } finally {
+   332→      setLoadingDetail(false);
+   333→    }
+   334→  }
+   335→
+   336→  async function toggleTask(task: ProjectTask) {
+   337→    if (!detailProject) return;
+   338→    setTogglingTask(task.id);
+   339→    try {
+   340→      const updated = await api.patch<ProjectTask>(
+   341→        `/api/projects/${detailProject.id}/tasks`,
+   342→        { taskId: task.id, isCompleted: !task.isCompleted }
+   343→      );
+   344→
+   345→      // Update local state
+   346→      setDetailTasks((prev) =>
+   347→        prev.map((t) => (t.id === task.id ? { ...t, isCompleted: !t.isCompleted } : t))
+   348→      );
+   349→
+   350→      // Update progress
+   351→      const allTasks = detailTasks.map((t) =>
+   352→        t.id === task.id ? { ...t, isCompleted: !t.isCompleted } : t
+   353→      );
+   354→      const completed = allTasks.filter((t) => t.isCompleted).length;
+   355→      const total = allTasks.length;
+   356→      const newProgress = total > 0 ? Math.round((completed / total) * 100) : 0;
+   357→
+   358→      setDetailProject((prev) =>
+   359→        prev ? { ...prev, progress: newProgress } : null
+   360→      );
+   361→
+   362→      // Also refresh the project list
+   363→      fetchProjects();
+   364→    } catch {
+   365→      // silently handle
+   366→    } finally {
+   367→      setTogglingTask(null);
+   368→    }
+   369→  }
+   370→
+   371→  // ============ GENERATE TASKS ============
+   372→
+   373→  async function handleGenerateTasks(project: Project) {
+   374→    if (generatingTasks === project.id) return;
+   375→    setGeneratingTasks(project.id);
+   376→    try {
+   377→      // First generate task suggestions
+   378→      const suggestions = await api.post<{ tasks: { title: string; description: string }[] }>(
+   379→        `/api/projects/${project.id}/generate-tasks`
+   380→      );
+   381→
+   382→      // Then create the tasks
+   383→      if (suggestions.tasks && suggestions.tasks.length > 0) {
+   384→        await api.post(`/api/projects/${project.id}/tasks`, {
+   385→          tasks: suggestions.tasks,
+   386→        });
+   387→      }
+   388→
+   389→      // Refresh projects
+   390→      fetchProjects();
+   391→    } catch {
+   392→      // silently handle
+   393→    } finally {
+   394→      setGeneratingTasks(null);
+   395→    }
+   396→  }
+   397→
+   398→  // ============ DELETE / DUPLICATE ============
+   399→
+   400→  async function handleDeleteProject(projectId: string) {
+   401→    if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
+   402→    setDeletingProject(projectId);
+   403→    try {
+   404→      await api.delete(`/api/projects/${projectId}`);
+   405→      toast.success("Project deleted successfully");
+   406→      fetchProjects();
+   407→    } catch {
+   408→      toast.error("Failed to delete project");
+   409→    } finally {
+   410→      setDeletingProject(null);
+   411→    }
+   412→  }
+   413→
+   414→  async function handleDuplicateProject(projectId: string) {
+   415→    setDuplicatingProject(projectId);
+   416→    try {
+   417→      await api.post(`/api/projects/${projectId}/duplicate`);
+   418→      toast.success("Project duplicated successfully");
+   419→      fetchProjects();
+   420→    } catch {
+   421→      toast.error("Failed to duplicate project");
+   422→    } finally {
+   423→      setDuplicatingProject(null);
+   424→    }
+   425→  }
+   426→
+   427→  // ============ USER SEARCH FOR ASSIGNMENT ============
+   428→
+   429→  async function searchUsers(query: string) {
+   430→    setUserSearchQuery(query);
+   431→    if (query.length < 2) {
+   432→      setUserSearchResults([]);
+   433→      return;
+   434→    }
+   435→    setSearchingUsers(true);
+   436→    try {
+   437→      const data = await api.get<SimpleUser[]>("/api/users", { search: query, type: "employee" });
+   438→      const users = Array.isArray(data) ? data : [];
+   439→      setUserSearchResults(users);
+   440→    } catch {
+   441→      setUserSearchResults([]);
+   442→    } finally {
+   443→      setSearchingUsers(false);
+   444→    }
+   445→  }
+   446→
+   447→  function addEmployeeToAssignment(user: SimpleUser) {
+   448→    if (!user.employee?.id) {
+   449→      toast.error("This user has no employee record");
+   450→      return;
+   451→    }
+   452→    if (selectedEmployeeIds.includes(user.employee.id)) {
+   453→      toast.error("Already added");
+   454→      return;
+   455→    }
+   456→    setSelectedEmployeeIds((prev) => [...prev, user.employee!.id]);
+   457→    setSelectedEmployeeNames((prev) => new Map(prev).set(user.employee!.id, user.fullName || user.email));
+   458→    setUserSearchQuery("");
+   459→    setUserSearchResults([]);
+   460→  }
+   461→
+   462→  function removeEmployeeFromAssignment(empId: string) {
+   463→    setSelectedEmployeeIds((prev) => prev.filter((id) => id !== empId));
+   464→    setSelectedEmployeeNames((prev) => { const m = new Map(prev); m.delete(empId); return m; });
+   465→  }
+   466→
+   467→  // ============ TAB DEFINITIONS ============
+   468→
+   469→  const tabs = [
+   470→    { value: "all", label: "All" },
+   471→    { value: "active", label: "Active" },
+   472→    { value: "draft", label: "Draft" },
+   473→    { value: "on_hold", label: "On Hold" },
+   474→    { value: "completed", label: "Completed" },
+   475→    { value: "archived", label: "Archived" },
+   476→  ];
+   477→
+   478→  return (
+   479→    <div className="space-y-6">
+   480→      {/* Header */}
+   481→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   482→        <div>
+   483→          <h2 className="text-xl font-semibold">Project Management</h2>
+   484→          <p className="text-sm text-muted-foreground">
+   485→            Track and manage all projects
+   486→          </p>
+   487→        </div>
+   488→        <Button onClick={openCreateDialog} className="shrink-0">
+   489→          <Plus className="h-4 w-4 mr-2" />
+   490→          New Project
+   491→        </Button>
+   492→      </div>
+   493→
+   494→      {/* Tabs + Filters */}
+   495→      <div className="space-y-4">
+   496→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   497→          <TabsList className="flex-wrap h-auto gap-1">
+   498→            {tabs.map((tab) => (
+   499→              <TabsTrigger key={tab.value} value={tab.value} className="text-xs">
+   500→                {tab.label}
+   501→              </TabsTrigger>
+   502→            ))}
+   503→          </TabsList>
+   504→        </Tabs>
+   505→
+   506→        <div className="flex flex-col sm:flex-row gap-3">
+   507→          <div className="relative flex-1">
+   508→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   509→            <Input
+   510→              placeholder="Search projects..."
+   511→              value={searchQuery}
+   512→              onChange={(e) => setSearchQuery(e.target.value)}
+   513→              className="pl-9"
+   514→            />
+   515→          </div>
+   516→          <Select value={filterPriority} onValueChange={setFilterPriority}>
+   517→            <SelectTrigger className="w-full sm:w-40">
+   518→              <SelectValue placeholder="Priority" />
+   519→            </SelectTrigger>
+   520→            <SelectContent>
+   521→              <SelectItem value="all">All Priorities</SelectItem>
+   522→              <SelectItem value="critical">Critical</SelectItem>
+   523→              <SelectItem value="high">High</SelectItem>
+   524→              <SelectItem value="medium">Medium</SelectItem>
+   525→              <SelectItem value="low">Low</SelectItem>
+   526→            </SelectContent>
+   527→          </Select>
+   528→          {(searchQuery || filterPriority !== "all") && (
+   529→            <Button
+   530→              variant="ghost"
+   531→              size="icon"
+   532→              onClick={() => {
+   533→                setSearchQuery("");
+   534→                setFilterPriority("all");
+   535→              }}
+   536→              className="shrink-0"
+   537→              title="Clear filters"
+   538→            >
+   539→              <X className="h-4 w-4" />
+   540→            </Button>
+   541→          )}
+   542→        </div>
+   543→      </div>
+   544→
+   545→      {/* Project Cards Grid */}
+   546→      {loading ? (
+   547→        <CardGridSkeleton />
+   548→      ) : filteredProjects.length === 0 ? (
+   549→        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+   550→          <FolderKanban className="h-16 w-16 mb-4 opacity-20" />
+   551→          <p className="text-lg font-medium">No projects found</p>
+   552→          <p className="text-sm mt-1">
+   553→            {searchQuery || filterPriority !== "all" || activeTab !== "all"
+   554→              ? "Try adjusting your filters"
+   555→              : "Click 'New Project' to create one"}
+   556→          </p>
+   557→        </div>
+   558→      ) : (
+   559→        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+   560→          {filteredProjects.map((project) => (
+   561→            <Card
+   562→              key={project.id}
+   563→              className="flex flex-col hover:shadow-md transition-shadow"
+   564→            >
+   565→              <CardHeader className="pb-3">
+   566→                <div className="flex items-start justify-between gap-2">
+   567→                  <CardTitle className="text-base font-semibold leading-tight">
+   568→                    {project.name}
+   569→                  </CardTitle>
+   570→                  <div className="flex items-center gap-2 shrink-0">
+   571→                    <Badge
+   572→                      className={`text-[10px] ${getStatusColor(project.status)}`}
+   573→                    >
+   574→                      {getStatusLabel(project.status)}
+   575→                    </Badge>
+   576→                  </div>
+   577→                </div>
+   578→                <div className="flex items-center gap-2 mt-1">
+   579→                  <Badge
+   580→                    className={`text-[10px] ${getPriorityColor(project.priority)}`}
+   581→                  >
+   582→                    {project.priority}
+   583→                  </Badge>
+   584→                </div>
+   585→              </CardHeader>
+   586→
+   587→              <CardContent className="flex-1 space-y-3">
+   588→                {project.description && (
+   589→                  <p className="text-sm text-muted-foreground line-clamp-2">
+   590→                    {project.description}
+   591→                  </p>
+   592→                )}
+   593→
+   594→                <div className="space-y-1.5">
+   595→                  <div className="flex items-center justify-between text-xs">
+   596→                    <span className="text-muted-foreground">Progress</span>
+   597→                    <span className="font-medium">{project.progress}%</span>
+   598→                  </div>
+   599→                  <Progress value={project.progress} className="h-2" />
+   600→                </div>
+   601→
+   602→                {/* Tags */}
+   603→                {project.tags && (
+   604→                  <div className="flex flex-wrap gap-1">
+   605→                    {project.tags
+   606→                      .split(",")
+   607→                      .filter(Boolean)
+   608→                      .map((tag) => (
+   609→                        <Badge
+   610→                          key={tag.trim()}
+   611→                          variant="outline"
+   612→                          className="text-[10px] px-1.5"
+   613→                        >
+   614→                          {tag.trim()}
+   615→                        </Badge>
+   616→                      ))}
+   617→                  </div>
+   618→                )}
+   619→
+   620→                {/* Meta info */}
+   621→                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+   622→                  <span className="flex items-center gap-1">
+   623→                    <ListTodo className="h-3 w-3" />
+   624→                    {project._count?.tasks ?? 0} tasks
+   625→                  </span>
+   626→                  <span className="flex items-center gap-1">
+   627→                    <Users className="h-3 w-3" />
+   628→                    {project._count?.assignments ?? 0} assigned
+   629→                  </span>
+   630→                  <span className="flex items-center gap-1 font-medium">
+   631→                    <DollarSign className="h-3 w-3" />
+   632→                    {formatCurrency(project.budget)}
+   633→                  </span>
+   634→                </div>
+   635→              </CardContent>
+   636→
+   637→              <CardFooter className="pt-3 gap-2">
+   638→                <Button
+   639→                  variant="outline"
+   640→                  size="sm"
+   641→                  className="flex-1"
+   642→                  onClick={() => openDetailDialog(project)}
+   643→                >
+   644→                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+   645→                  View
+   646→                </Button>
+   647→                <Button
+   648→                  variant="outline"
+   649→                  size="sm"
+   650→                  onClick={() => openEditDialog(project)}
+   651→                >
+   652→                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+   653→                  Edit
+   654→                </Button>
+   655→                <Button
+   656→                  variant="outline"
+   657→                  size="sm"
+   658→                  onClick={() => handleDuplicateProject(project.id)}
+   659→                  disabled={duplicatingProject === project.id}
+   660→                >
+   661→                  {duplicatingProject === project.id ? (
+   662→                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+   663→                  ) : (
+   664→                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+   665→                  )}
+   666→                  Duplicate
+   667→                </Button>
+   668→                <Button
+   669→                  variant="outline"
+   670→                  size="sm"
+   671→                  className="text-destructive hover:text-destructive"
+   672→                  onClick={() => handleDeleteProject(project.id)}
+   673→                  disabled={deletingProject === project.id}
+   674→                >
+   675→                  {deletingProject === project.id ? (
+   676→                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+   677→                  ) : (
+   678→                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+   679→                  )}
+   680→                  Delete
+   681→                </Button>
+   682→              </CardFooter>
+   683→            </Card>
+   684→          ))}
+   685→        </div>
+   686→      )}
+   687→
+   688→      {/* Create/Edit Project Dialog */}
+   689→      <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
+   690→        <DialogContent className="sm:max-w-lg">
+   691→          <DialogHeader>
+   692→            <DialogTitle>
+   693→              {editingProject ? "Edit Project" : "Create New Project"}
+   694→            </DialogTitle>
+   695→            <DialogDescription>
+   696→              {editingProject
+   697→                ? "Update the project details below."
+   698→                : "Fill in the details to create a new project."}
+   699→            </DialogDescription>
+   700→          </DialogHeader>
+   701→
+   702→          <div className="space-y-4 py-2">
+   703→            <div className="space-y-2">
+   704→              <Label htmlFor="projectName">Project Name</Label>
+   705→              <Input
+   706→                id="projectName"
+   707→                placeholder="Enter project name"
+   708→                value={formData.name}
+   709→                onChange={(e) =>
+   710→                  setFormData((f) => ({ ...f, name: e.target.value }))
+   711→                }
+   712→              />
+   713→              {formErrors.name && (
+   714→                <p className="text-xs text-destructive">{formErrors.name}</p>
+   715→              )}
+   716→            </div>
+   717→
+   718→            <div className="space-y-2">
+   719→              <Label htmlFor="projectDesc">Description</Label>
+   720→              <Textarea
+   721→                id="projectDesc"
+   722→                placeholder="Describe the project..."
+   723→                rows={3}
+   724→                value={formData.description}
+   725→                onChange={(e) =>
+   726→                  setFormData((f) => ({ ...f, description: e.target.value }))
+   727→                }
+   728→              />
+   729→            </div>
+   730→
+   731→            <div className="grid grid-cols-2 gap-4">
+   732→              <div className="space-y-2">
+   733→                <Label>Status</Label>
+   734→                <Select
+   735→                  value={formData.status}
+   736→                  onValueChange={(v) =>
+   737→                    setFormData((f) => ({
+   738→                      ...f,
+   739→                      status: v as ProjectStatus,
+   740→                    }))
+   741→                  }
+   742→                >
+   743→                  <SelectTrigger>
+   744→                    <SelectValue />
+   745→                  </SelectTrigger>
+   746→                  <SelectContent>
+   747→                    <SelectItem value="draft">Draft</SelectItem>
+   748→                    <SelectItem value="active">Active</SelectItem>
+   749→                    <SelectItem value="on_hold">On Hold</SelectItem>
+   750→                    <SelectItem value="completed">Completed</SelectItem>
+   751→                    <SelectItem value="archived">Archived</SelectItem>
+   752→                  </SelectContent>
+   753→                </Select>
+   754→              </div>
+   755→
+   756→              <div className="space-y-2">
+   757→                <Label>Priority</Label>
+   758→                <Select
+   759→                  value={formData.priority}
+   760→                  onValueChange={(v) =>
+   761→                    setFormData((f) => ({
+   762→                      ...f,
+   763→                      priority: v as ProjectPriority,
+   764→                    }))
+   765→                  }
+   766→                >
+   767→                  <SelectTrigger>
+   768→                    <SelectValue />
+   769→                  </SelectTrigger>
+   770→                  <SelectContent>
+   771→                    <SelectItem value="low">Low</SelectItem>
+   772→                    <SelectItem value="medium">Medium</SelectItem>
+   773→                    <SelectItem value="high">High</SelectItem>
+   774→                    <SelectItem value="critical">Critical</SelectItem>
+   775→                  </SelectContent>
+   776→                </Select>
+   777→              </div>
+   778→            </div>
+   779→
+   780→            <div className="grid grid-cols-2 gap-4">
+   781→              <div className="space-y-2">
+   782→                <Label htmlFor="budget">Budget ($)</Label>
+   783→                <Input
+   784→                  id="budget"
+   785→                  type="number"
+   786→                  min={0}
+   787→                  placeholder="0"
+   788→                  value={formData.budget || ""}
+   789→                  onChange={(e) =>
+   790→                    setFormData((f) => ({
+   791→                      ...f,
+   792→                      budget: Number(e.target.value) || 0,
+   793→                    }))
+   794→                  }
+   795→                />
+   796→              </div>
+   797→              <div className="space-y-2">
+   798→                <Label htmlFor="tags">Tags</Label>
+   799→                <Input
+   800→                  id="tags"
+   801→                  placeholder="tag1, tag2, tag3"
+   802→                  value={formData.tags}
+   803→                  onChange={(e) =>
+   804→                    setFormData((f) => ({ ...f, tags: e.target.value }))
+   805→                  }
+   806→                />
+   807→              </div>
+   808→            </div>
+   809→
+   810→            {/* Multi-Employee Assignment (only on create) */}
+   811→            {!editingProject && (
+   812→              <div className="space-y-3">
+   813→                <Label>Assign Employees</Label>
+   814→                <div className="relative">
+   815→                  <div className="flex gap-2">
+   816→                    <Input
+   817→                      placeholder="Search employees by name or email..."
+   818→                      value={userSearchQuery}
+   819→                      onChange={(e) => searchUsers(e.target.value)}
+   820→                      className="flex-1"
+   821→                    />
+   822→                    {searchingUsers && (
+   823→                      <Loader2 className="h-4 w-4 animate-spin mt-3 absolute right-3 top-0" />
+   824→                    )}
+   825→                  </div>
+   826→                  {userSearchResults.length > 0 && (
+   827→                    <div className="absolute z-50 top-full mt-1 w-full border rounded-lg bg-popover shadow-md max-h-48 overflow-y-auto">
+   828→                      {userSearchResults.map((u) => (
+   829→                        <button
+   830→                          key={u.id}
+   831→                          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left transition-colors"
+   832→                          onClick={() => addEmployeeToAssignment(u)}
+   833→                          disabled={!u.employee?.id}
+   834→                        >
+   835→                          <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+   836→                          <span className="font-medium">{u.fullName}</span>
+   837→                          <span className="text-xs text-muted-foreground ml-auto">{u.email}</span>
+   838→                        </button>
+   839→                      ))}
+   840→                    </div>
+   841→                  )}
+   842→                </div>
+   843→                {selectedEmployeeIds.length > 0 && (
+   844→                  <div className="flex flex-wrap gap-2 mt-2">
+   845→                    {selectedEmployeeIds.map((empId) => {
+   846→                      const name = selectedEmployeeNames.get(empId);
+   847→                      return (
+   848→                        <Badge
+   849→                          key={empId}
+   850→                          variant="secondary"
+   851→                          className="flex items-center gap-1.5 pl-2.5 pr-1 py-1"
+   852→                        >
+   853→                          <span className="text-xs">{name ?? empId.slice(0, 6)}</span>
+   854→                          <button
+   855→                            className="h-4 w-4 rounded-full inline-flex items-center justify-center hover:bg-muted-foreground/20"
+   856→                            onClick={() => removeEmployeeFromAssignment(empId)}
+   857→                          >
+   858→                            <X className="h-3 w-3" />
+   859→                          </button>
+   860→                        </Badge>
+   861→                      );
+   862→                    })}
+   863→                  </div>
+   864→                )}
+   865→              </div>
+   866→            )}
+   867→          </div>
+   868→
+   869→          <DialogFooter>
+   870→            <Button
+   871→              variant="outline"
+   872→              onClick={() => setFormDialogOpen(false)}
+   873→              disabled={submitting}
+   874→            >
+   875→              Cancel
+   876→            </Button>
+   877→            <Button onClick={handleFormSubmit} disabled={submitting || assigningEmployees}>
+   878→              {submitting || assigningEmployees
+   879→                ? assigningEmployees
+   880→                  ? "Creating & Assigning..."
+   881→                  : "Saving..."
+   882→                : editingProject
+   883→                  ? "Save Changes"
+   884→                  : "Create Project"}
+   885→            </Button>
+   886→          </DialogFooter>
+   887→        </DialogContent>
+   888→      </Dialog>
+   889→
+   890→      {/* Project Detail Dialog */}
+   891→      <Dialog
+   892→        open={detailDialogOpen}
+   893→        onOpenChange={setDetailDialogOpen}
+   894→      >
+   895→        <DialogContent className="sm:max-w-2xl max-h-[85vh]">
+   896→          <DialogHeader>
+   897→            <DialogTitle className="text-lg">
+   898→              {detailProject?.name}
+   899→            </DialogTitle>
+   900→            <DialogDescription>
+   901→              Project details and task management
+   902→            </DialogDescription>
+   903→          </DialogHeader>
+   904→
+   905→          {loadingDetail ? (
+   906→            <div className="space-y-4 py-4">
+   907→              <Skeleton className="h-4 w-1/3" />
+   908→              <Skeleton className="h-3 w-full" />
+   909→              <Skeleton className="h-3 w-2/3" />
+   910→              <Separator />
+   911→              {Array.from({ length: 4 }).map((_, i) => (
+   912→                <div key={i} className="flex items-center gap-3">
+   913→                  <Skeleton className="h-4 w-4 rounded" />
+   914→                  <Skeleton className="h-4 flex-1" />
+   915→                </div>
+   916→              ))}
+   917→            </div>
+   918→          ) : detailProject ? (
+   919→            <div className="space-y-5">
+   920→              {/* Project Info */}
+   921→              <div className="flex flex-wrap items-center gap-3">
+   922→                <Badge
+   923→                  className={`text-xs ${getStatusColor(detailProject.status)}`}
+   924→                >
+   925→                  {getStatusLabel(detailProject.status)}
+   926→                </Badge>
+   927→                <Badge
+   928→                  className={`text-xs ${getPriorityColor(detailProject.priority)}`}
+   929→                >
+   930→                  {detailProject.priority}
+   931→                </Badge>
+   932→                <Badge variant="outline" className="text-xs">
+   933→                  {formatCurrency(detailProject.budget)}
+   934→                </Badge>
+   935→              </div>
+   936→
+   937→              {detailProject.description && (
+   938→                <p className="text-sm text-muted-foreground">
+   939→                  {detailProject.description}
+   940→                </p>
+   941→              )}
+   942→
+   943→              <div className="space-y-1.5">
+   944→                <div className="flex items-center justify-between text-sm">
+   945→                  <span className="text-muted-foreground">Overall Progress</span>
+   946→                  <span className="font-medium">{detailProject.progress}%</span>
+   947→                </div>
+   948→                <Progress value={detailProject.progress} className="h-2.5" />
+   949→              </div>
+   950→
+   951→              <Separator />
+   952→
+   953→              {/* Tasks Section */}
+   954→              <div className="space-y-3">
+   955→                <div className="flex items-center justify-between">
+   956→                  <h3 className="text-sm font-semibold flex items-center gap-2">
+   957→                    <ListTodo className="h-4 w-4" />
+   958→                    Tasks ({detailTasks.length})
+   959→                  </h3>
+   960→                  <Button
+   961→                    variant="outline"
+   962→                    size="sm"
+   963→                    disabled={generatingTasks === detailProject.id}
+   964→                    onClick={() => handleGenerateTasks(detailProject)}
+   965→                  >
+   966→                    {generatingTasks === detailProject.id ? (
+   967→                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+   968→                    ) : (
+   969→                      <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+   970→                    )}
+   971→                    Generate
+   972→                  </Button>
+   973→                </div>
+   974→
+   975→                <ScrollArea className="h-64">
+   976→                  {detailTasks.length === 0 ? (
+   977→                    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+   978→                      <Inbox className="h-8 w-8 mb-2 opacity-30" />
+   979→                      <p className="text-sm">No tasks yet</p>
+   980→                      <p className="text-xs mt-1">
+   981→                        Click "Generate" to create tasks with AI
+   982→                      </p>
+   983→                    </div>
+   984→                  ) : (
+   985→                    <div className="space-y-1 pr-3">
+   986→                      {detailTasks.map((task) => (
+   987→                        <div
+   988→                          key={task.id}
+   989→                          className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer"
+   990→                          onClick={() => toggleTask(task)}
+   991→                        >
+   992→                          <div className="shrink-0">
+   993→                            {togglingTask === task.id ? (
+   994→                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+   995→                            ) : task.isCompleted ? (
+   996→                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+   997→                            ) : (
+   998→                              <Circle className="h-4 w-4 text-muted-foreground" />
+   999→                            )}
+  1000→                          </div>
+  1001→                          <div className="flex-1 min-w-0">
+  1002→                            <p
+  1003→                              className={`text-sm ${
+  1004→                                task.isCompleted
+  1005→                                  ? "line-through text-muted-foreground"
+  1006→                                  : ""
+  1007→                              }`}
+  1008→                            >
+  1009→                              {task.title}
+  1010→                            </p>
+  1011→                            {task.description && (
+  1012→                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+  1013→                                {task.description}
+  1014→                              </p>
+  1015→                            )}
+  1016→                          </div>
+  1017→                        </div>
+  1018→                      ))}
+  1019→                    </div>
+  1020→                  )}
+  1021→                </ScrollArea>
+  1022→              </div>
+  1023→
+  1024→              <Separator />
+  1025→
+  1026→              {/* Assigned Employees */}
+  1027→              <div className="space-y-3">
+  1028→                <h3 className="text-sm font-semibold flex items-center gap-2">
+  1029→                  <Users className="h-4 w-4" />
+  1030→                  Assigned Members ({detailAssignments.length})
+  1031→                </h3>
+  1032→
+  1033→                {detailAssignments.length === 0 ? (
+  1034→                  <p className="text-sm text-muted-foreground">
+  1035→                    No members assigned to this project yet.
+  1036→                  </p>
+  1037→                ) : (
+  1038→                  <div className="space-y-2">
+  1039→                    {detailAssignments.map((assignment) => (
+  1040→                      <div
+  1041→                        key={assignment.id}
+  1042→                        className="flex items-center gap-3 rounded-lg border p-3"
+  1043→                      >
+  1044→                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">
+  1045→                          {assignment.employee?.user?.fullName
+  1046→                            ?.split(" ")
+  1047→                            .map((n) => n[0])
+  1048→                            .join("")
+  1049→                            .slice(0, 2)
+  1050→                            .toUpperCase() ?? "?"}
+  1051→                        </div>
+  1052→                        <div className="flex-1 min-w-0">
+  1053→                          <p className="text-sm font-medium truncate">
+  1054→                            {assignment.employee?.user?.fullName ?? "Unknown"}
+  1055→                          </p>
+  1056→                          <p className="text-xs text-muted-foreground truncate">
+  1057→                            {assignment.employee?.user?.email ?? ""}
+  1058→                          </p>
+  1059→                        </div>
+  1060→                        <Badge
+  1061→                          variant={
+  1062→                            assignment.status === "accepted"
+  1063→                              ? "default"
+  1064→                              : "secondary"
+  1065→                          }
+  1066→                          className={`text-[10px] ${
+  1067→                            assignment.status === "accepted"
+  1068→                              ? "bg-green-100 text-green-700 hover:bg-green-100"
+  1069→                              : assignment.status === "pending"
+  1070→                                ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
+  1071→                                : assignment.status === "rejected"
+  1072→                                  ? "bg-red-100 text-red-700 hover:bg-red-100"
+  1073→                                  : "bg-gray-100 text-gray-500 hover:bg-gray-100"
+  1074→                          }`}
+  1075→                        >
+  1076→                          {assignment.status}
+  1077→                        </Badge>
+  1078→                      </div>
+  1079→                    ))}
+  1080→                  </div>
+  1081→                )}
+  1082→              </div>
+  1083→            </div>
+  1084→          ) : null}
+  1085→        </DialogContent>
+  1086→      </Dialog>
+  1087→    </div>
+  1088→  );
+  1089→}
+  1090→

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { userId, message, notificationType, link } = body;
+    const { userId, message, notificationType, actionUrl, link } = body;
 
     if (!userId || !message) {
       return NextResponse.json({ message: "userId and message are required" }, { status: 400 });
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         userId,
         message,
         notificationType: notificationType || "info",
-        link: link || "",
+        actionUrl: actionUrl || link || "",
       },
     });
 
