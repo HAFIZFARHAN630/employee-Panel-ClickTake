@@ -7,15 +7,8 @@ export async function POST(req: NextRequest) {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
 
-    const body = await req.json();
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json({ message: "userId is required" }, { status: 400 });
-    }
-
     const result = await db.notification.updateMany({
-      where: { userId, isRead: false },
+      where: { userId: auth.userId, isRead: false },
       data: { isRead: true },
     });
 

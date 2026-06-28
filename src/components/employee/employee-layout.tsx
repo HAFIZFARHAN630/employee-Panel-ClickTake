@@ -182,7 +182,14 @@ export function EmployeeLayout() {
   }, []);
 
   const userFullName = user?.fullName ?? "User";
-  const unreadCount = 3; // placeholder
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    api.get<any[]>("/api/notifications/my").then((data) => {
+      const list = Array.isArray(data) ? data : [];
+      setUnreadCount(list.filter((n: any) => !n.isRead).length);
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen flex bg-background">

@@ -27,9 +27,9 @@ export async function GET(req: NextRequest) {
       const total = logs.reduce((s, l) => s + (l.duration || 0), 0);
       const active = logs.filter((l) => l.isVerified).reduce((s, l) => s + (l.duration || 0), 0);
       return {
-        totalHours: Math.round((total / 60) * 100) / 100,
-        activeHours: Math.round((active / 60) * 100) / 100,
-        unverifiedHours: Math.round(((total - active) / 60) * 100) / 100,
+        totalHours: Math.round(total * 100) / 100,
+        activeHours: Math.round(active * 100) / 100,
+        unverifiedHours: Math.round((total - active) * 100) / 100,
       };
     }
 

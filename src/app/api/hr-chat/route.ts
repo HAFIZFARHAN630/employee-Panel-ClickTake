@@ -53,17 +53,19 @@ export async function POST(req: NextRequest) {
       const { decryptApiKey } = await import("@/lib/crypto-utils");
       const apiKey = decryptApiKey(aiConfig.apiKey);
 
-      const response = await fetch(aiConfig.apiEndpoint, {
+      const endpoint = aiConfig.provider === "google"
+        ? `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
+        : "https://api.openai.com/v1/chat/completions";
+
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
           model: aiConfig.modelName,
           messages: [
             { role: "system", content: "You are an HR assistant for an employee management system. Answer questions about company policies, benefits, onboarding, and workplace conduct. Be concise and helpful." },
             { role: "user", content: question },
           ],
-          temperature: aiConfig.temperature,
-          max_tokens: aiConfig.maxTokens,
         }),
       });
 

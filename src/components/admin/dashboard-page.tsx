@@ -263,13 +263,15 @@ export function DashboardPage() {
 
   const topProjects = projects.slice(0, 5);
 
-  const departmentAttendance = [
-    { name: "Engineering", rate: 94 },
-    { name: "Design", rate: 91 },
-    { name: "Marketing", rate: 87 },
-    { name: "Sales", rate: 89 },
-    { name: "HR", rate: 96 },
-  ];
+  const [departmentAttendance, setDepartmentAttendance] = useState<{ name: string; rate: number }[]>([]);
+
+  useEffect(() => {
+    api.get<Record<string, number>>("/api/dashboard/stats").then((data) => {
+      if (data?.departmentAttendance && Array.isArray(data.departmentAttendance)) {
+        setDepartmentAttendance(data.departmentAttendance);
+      }
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-6">

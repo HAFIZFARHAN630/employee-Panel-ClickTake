@@ -20,13 +20,20 @@ export function LoginPage() {
   const [branding, setBranding] = useState<{logoUrls?: string[]; companyName?: string; primaryColor?: string} | null>(null);
 
   useEffect(() => {
-    api.get<{logoUrls?: string; companyName?: string; primaryColor?: string}>("/api/branding")
+    api.get<{logoUrls?: string[]; companyName?: string; primaryColor?: string; secondaryColor?: string}>("/api/branding/public")
       .then((data) => {
         let logoUrls: string[] | undefined;
         if (data.logoUrls) {
-          try { logoUrls = JSON.parse(data.logoUrls); } catch { logoUrls = undefined; }
+          logoUrls = Array.isArray(data.logoUrls) ? data.logoUrls : undefined;
         }
         setBranding({ ...data, logoUrls });
+        // Apply branding colors to CSS variables
+        if (data.primaryColor) {
+          document.documentElement.style.setProperty("--primary", data.primaryColor);
+        }
+        if (data.secondaryColor) {
+          document.documentElement.style.setProperty("--secondary", data.secondaryColor);
+        }
       })
       .catch(() => {});
   }, []);

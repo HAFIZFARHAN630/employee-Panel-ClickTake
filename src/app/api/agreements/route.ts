@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined): any {
+  if (!val) return [];
+  try { return JSON.parse(val); } catch { return val; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -19,8 +24,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       templates.map((t) => ({
         ...t,
-        applicableRoles: t.applicableRoles,
-        applicableDepartments: t.applicableDepartments,
+        applicableRoles: safeJsonParse(t.applicableRoles),
+        applicableDepartments: safeJsonParse(t.applicableDepartments),
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
         _count: t._count,

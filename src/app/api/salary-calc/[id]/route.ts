@@ -29,8 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    const totalMinutes = timeLogs.reduce((sum, log) => sum + (log.duration || 0), 0);
-    const totalHours = totalMinutes / 60;
+    const totalHours = timeLogs.reduce((sum, log) => sum + (log.duration || 0), 0);
     const hourlyRate = employee.hourlyRate || 0;
     const totalSalary = totalHours * hourlyRate;
 
