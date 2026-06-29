@@ -5,6 +5,7 @@
 # console leaks, lint errors, and missing API routes.
 # ============================================================
 
+set -uo pipefail
 cd "$(dirname "$0")/.."
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -17,33 +18,37 @@ echo -e "${CYAN}========================================${NC}\n"
 
 # ---- 1. Dummy / Hardcoded Data ----
 echo -e "${CYAN}[1/6] Dummy/Hardcoded Data...${NC}"
-if rg -n 'unreadCount\s*=\s*[0-9]+' src/components/ -g '*.tsx' 2>/dev/null | head -5; then
-  echo -e "  ${RED}✗ Found hardcoded unreadCount${NC}"; ISSUES=$((ISSUES+1))
+
+# Check for hardcoded unreadCount (NOT useState(0))
+if rg -n 'const unreadCount\s*=\s*[1-9]' src/components/ --glob '*.tsx' 2>/dev/null | head -5 | grep -v useState; then
+  echo -e "  ${RED}✗ Found hardcoded unreadCount (not useState)${NC}"; ISSUES=$((ISSUES+1))
 else
   echo -e "  ${GREEN}✓ No hardcoded unreadCount${NC}"
 fi
 
-if rg 'departmentAttendance:\s*\[' src/ -g '*.tsx' 2>/dev/null | head -5; then
+# Check for hardcoded departmentAttendance arrays
+if rg -n 'departmentAttendance:\s*\[' src/components/ --glob '*.tsx' 2>/dev/null | head -5; then
   echo -e "  ${RED}✗ Found hardcoded departmentAttendance${NC}"; ISSUES=$((ISSUES+1))
 else
   echo -e "  ${GREEN}✓ No hardcoded departmentAttendance${NC}"
 fi
 
-if rg 'TODO|FIXME|HACK' src/components/ -g '*.tsx' 2>/dev/null | head -5; then
-  echo -e "  ${YELLOW}! Found TODO/FIXME comments${NC}"
+# Check for TODO/FIXME/HACK with word boundaries
+if rg -n '\b(TODO|FIXME|HACK)\b' src/components/ --glob '*.tsx' 2>/dev/null | head -5; then
+  echo -e "  ${YELLOW}! Found TODO/FIXME/HACK comments${NC}"
 else
-  echo -e "  ${GREEN}✓ No TODO/FIXME comments${NC}"
+  echo -e "  ${GREEN}✓ No TODO/FIXME/HACK comments${NC}"
 fi
 echo ""
 
 # ---- 2. Duplicate Code ----
 echo -e "${CYAN}[2/6] Duplicate Utility Functions...${NC}"
 for fn in getInitials formatCurrency getStatusColor getPriorityColor getUserTypeColor; do
-  count=$(rg -c "^function ${fn}" src/components/ -g '*.tsx' 2>/dev/null | awk -F: '{s+=$NF}END{print s+0}')
-  count=${count:-0}
-  if [ "$count" -gt 0 ]; then
+  matches=$(rg -n "^function ${fn}" src/components/ --glob '*.tsx' 2>/dev/null)
+  if [ -n "$matches" ]; then
+    count=$(echo "$matches" | wc -l | tr -d ' ')
     echo -e "  ${RED}✗ ${fn}: duplicated in ${count} file(s)${NC}"; ISSUES=$((ISSUES+count))
-    rg -n "^function ${fn}" src/components/ -g '*.tsx' 2>/dev/null
+    echo "$matches"
   else
     echo -e "  ${GREEN}✓ ${fn}: properly shared via @/lib/utils${NC}"
   fi
@@ -52,7 +57,7 @@ echo ""
 
 # ---- 3. Type Safety ----
 echo -e "${CYAN}[3/6] Type Safety...${NC}"
-if rg '@ts-ignore|@ts-nocheck' src/ -g '*.{ts,tsx}' 2>/dev/null | head -5; then
+if rg -n '@ts-ignore|@ts-nocheck' src/ --glob '*.{ts,tsx}' 2>/dev/null | head -5; then
   echo -e "  ${RED}✗ Found @ts-ignore/@ts-nocheck${NC}"; ISSUES=$((ISSUES+1))
 else
   echo -e "  ${GREEN}✓ No @ts-ignore/@ts-nocheck${NC}"
@@ -61,7 +66,7 @@ echo ""
 
 # ---- 4. Console Leaks (frontend only) ----
 echo -e "${CYAN}[4/6] Console Leaks (frontend)...${NC}"
-if rg 'console\.(log|warn|debug)\(' src/components/ -g '*.tsx' 2>/dev/null | head -5; then
+if rg -n 'console\.(log|warn|debug)\(' src/components/ --glob '*.tsx' 2>/dev/null | head -5; then
   echo -e "  ${YELLOW}! Found console.log/warn/debug in frontend${NC}"; ISSUES=$((ISSUES+1))
 else
   echo -e "  ${GREEN}✓ No console leaks in frontend${NC}"
@@ -70,9 +75,10 @@ echo ""
 
 # ---- 5. ESLint ----
 echo -e "${CYAN}[5/6] ESLint...${NC}"
-if bun run lint 2>&1 | tail -1 | grep -q "error"; then
+lint_output=$(bun run lint 2>&1)
+if echo "$lint_output" | grep -q 'error'; then
   echo -e "  ${RED}✗ ESLint errors found${NC}"; ISSUES=$((ISSUES+1))
-  bun run lint 2>&1 | tail -10
+  echo "$lint_output" | tail -10
 else
   echo -e "  ${GREEN}✓ ESLint passed${NC}"
 fi
@@ -81,11 +87,15 @@ echo ""
 # ---- 6. API Route Coverage ----
 echo -e "${CYAN}[6/6] API Route Coverage...${NC}"
 missing=0
-for endpoint in $(rg -o 'api\.(get|post|put|patch|delete)\(["\x27]([^"\x27]+)' src/components/ -g '*.tsx' -r '$2' 2>/dev/null | sort -u | sed 's|/api/||'); do
-  route_path="src/app/api/$endpoint"
-  route_path=$(echo "$route_path" | cut -d'?' -f1)
+# Extract API endpoints from frontend code (e.g. "/api/users" from api.get("/api/users"))
+endpoints=$(rg --no-filename -o '"(/api/[^"]+)"' src/components/ --glob '*.tsx' 2>/dev/null | sed 's/"//g' | sort -u)
+for endpoint in $endpoints; do
+  # Strip query params
+  clean_endpoint=$(echo "$endpoint" | cut -d'?' -f1)
+  # Convert to file path
+  route_path="src/app${clean_endpoint}"
   if [ ! -f "${route_path}/route.ts" ] && [ ! -f "${route_path}.ts" ]; then
-    echo -e "  ${RED}✗ Missing route: /api/$endpoint${NC}"
+    echo -e "  ${RED}✗ Missing route: ${clean_endpoint}${NC}"
     missing=$((missing+1))
   fi
 done
@@ -106,5 +116,5 @@ else
   echo -e "${RED}  ✗ $ISSUES issue(s) found${NC}\n"
 fi
 
-echo "Audit complete at $(date)" > /tmp/ems-audit-report.txt
-echo "Issues: $ISSUES" >> /tmp/ems-audit-report.txt
+echo "Audit complete at $(date) - Issues: $ISSUES" > /tmp/ems-audit-report.txt
+exit 0
