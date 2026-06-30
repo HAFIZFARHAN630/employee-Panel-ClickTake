@@ -629,3 +629,21 @@ Stage Summary:
 - Render: Auto-deploying from main branch
 - Firebase: User needs to run: npm run build:firebase && firebase deploy --only hosting
 - Database: Supabase schema updated with onboarding tables
+---
+Task ID: QA-SWEEP-17
+Agent: Main Architect + 4 Parallel Agents
+Task: Fix 17 reported issues across the entire EMS system
+
+Work Log:
+- Analyzed all 17 user-reported issues and identified root causes
+- Fixed 4 backend API routes (verification, verification action, settings, users POST)
+- Dispatched 4 parallel full-stack agents for frontend reworks
+- All 17 files changed, 1690 insertions, 608 deletions
+- Lint passes clean (0 errors)
+- Committed and pushed to GitHub
+
+Stage Summary:
+- Backend: Verification API now returns proper format with nested user data, action API accepts approve/reject/resubmit, Settings stores all fields, Users POST creates Employee records
+- Frontend: 13 component files fixed across verification, branding, settings, announcements, assets, projects, assignments, chat, agreements, sidebar, business data, dashboard, storage, HR training
+- "Mark as Leave" feature does not exist in codebase - user may have confused with "Mark All as Read"
+- Pushed as commit ea9301b to main
