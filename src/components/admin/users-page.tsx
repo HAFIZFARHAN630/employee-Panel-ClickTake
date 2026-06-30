@@ -66,7 +66,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getInitials, getUserTypeColor } from "@/lib/utils";
 
 // ============ HELPERS ============
 
