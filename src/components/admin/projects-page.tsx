@@ -264,11 +264,12 @@ export function ProjectsPage() {
           setAssigningEmployees(false);
         }
       }
+      toast.success(editingProject ? "Project updated successfully" : "Project created successfully");
       setFormDialogOpen(false);
       setSelectedEmployeeIds([]);
       fetchProjects();
-    } catch {
-      // silently handle
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save project");
     } finally {
       setSubmitting(false);
       setAssigningEmployees(false);

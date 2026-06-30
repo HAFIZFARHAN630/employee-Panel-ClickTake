@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined): any {
+  if (!val) return [];
+  try { return JSON.parse(val); } catch { return val; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -19,7 +24,7 @@ export async function GET(req: NextRequest) {
         type: i.type,
         webhookUrl: i.webhookUrl,
         isActive: i.isActive,
-        events: i.events,
+        events: safeJsonParse(i.events),
         createdAt: i.createdAt.toISOString(),
       }))
     );

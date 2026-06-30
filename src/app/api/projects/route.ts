@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         priority: priority || "medium",
         progress: progress || 0,
         budget: budget || 0,
-        tags: tags ? JSON.stringify(tags) : "[]",
+        tags: typeof tags === "string" ? (tags || "[]") : JSON.stringify(tags || []),
         createdById: auth.userId,
         ownerId: ownerId || null,
         ...(startDate && { startDate: new Date(startDate) }),

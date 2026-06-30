@@ -47,9 +47,9 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(
-      users.map((u) => ({ ...u, createdAt: u.createdAt.toISOString(), updatedAt: u.updatedAt.toISOString() }))
-    );
+    return NextResponse.json({
+      users: users.map((u) => ({ ...u, createdAt: u.createdAt.toISOString(), updatedAt: u.updatedAt.toISOString() }))
+    });
   } catch (error) {
     console.error("Error fetching users:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });

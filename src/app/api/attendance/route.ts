@@ -154,10 +154,7 @@ export async function POST(req: NextRequest) {
 
       // Determine status based on time
       const hour = today.getHours();
-      let status = "present";
-      if (hour >= 9 && hour < 10) {
-        status = "late";
-      }
+      let status = hour >= 9 ? "late" : "present";
 
       record = await db.attendance.create({
         data: {
