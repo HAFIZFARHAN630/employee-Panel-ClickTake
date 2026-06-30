@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -17,40 +16,75 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { ScanFace, CheckCircle2, XCircle, Clock, Play } from "lucide-react";
+import { ScanFace, CheckCircle2, XCircle, Clock, Play, Eye, RotateCcw, ImageIcon } from "lucide-react";
 import { safeFormat } from "@/lib/date-utils";
 import { toast } from "sonner";
 
 // ============ HELPERS ============
 
+function parseJsonString<T>(str: string | unknown): T[] {
+  if (!str) return [];
+  if (Array.isArray(str)) return str as T[];
+  try {
+    const parsed = JSON.parse(str as string);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function getStatusBadge(status: string) {
   switch (status) {
     case "verified":
-      return <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">🟢 Verified</Badge>;
+      return <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Verified</Badge>;
     case "pending":
-      return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">🟡 Pending</Badge>;
+      return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">Pending</Badge>;
     case "rejected":
-      return <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">🔴 Rejected</Badge>;
+      return <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">Rejected</Badge>;
     default:
       return <Badge variant="secondary">{status}</Badge>;
   }
 }
 
+function getStatusIcon(status: string) {
+  switch (status) {
+    case "verified":
+      return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+    case "rejected":
+      return <XCircle className="h-5 w-5 text-red-500" />;
+    default:
+      return <Clock className="h-5 w-5 text-yellow-500" />;
+  }
+}
+
+// Extended type for API response with nested data
+interface VerificationRecordFull extends VerificationRecord {
+  reviewer?: { id: string; fullName: string } | null;
+  user?: VerificationRecord["user"] & {
+    employee?: {
+      department: string;
+      designation: string;
+      facePhotoUrls: string;
+    } | null;
+  };
+}
+
 // ============ COMPONENT ============
 
 export function VerificationPage() {
-  const [records, setRecords] = useState<VerificationRecord[]>([]);
+  const [records, setRecords] = useState<VerificationRecordFull[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRecord, setSelectedRecord] = useState<VerificationRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<VerificationRecordFull | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [showResubmitForm, setShowResubmitForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchRecords = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<VerificationRecord[]>("/api/verification");
+      const data = await api.get<VerificationRecordFull[]>("/api/verification");
       setRecords(data);
     } catch {
       toast.error("Failed to load verification records");
@@ -63,10 +97,12 @@ export function VerificationPage() {
     fetchRecords();
   }, [fetchRecords]);
 
-  const handleOpenRecord = (record: VerificationRecord) => {
+  const handleOpenRecord = (record: VerificationRecordFull, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setSelectedRecord(record);
     setShowDialog(true);
     setShowRejectForm(false);
+    setShowResubmitForm(false);
     setRejectReason("");
   };
 
@@ -110,6 +146,47 @@ export function VerificationPage() {
       setActionLoading(false);
     }
   };
+
+  const handleResubmit = async () => {
+    if (!selectedRecord || !rejectReason.trim()) {
+      toast.error("Please provide a reason for resubmission request");
+      return;
+    }
+    try {
+      setActionLoading(true);
+      await api.post(`/api/verification/${selectedRecord.id}/action`, {
+        action: "resubmit",
+        reason: rejectReason.trim(),
+      });
+      toast.success("Resubmission request sent");
+      setShowDialog(false);
+      setSelectedRecord(null);
+      setRejectReason("");
+      fetchRecords();
+    } catch {
+      toast.error("Failed to request resubmission");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const getFacePhotoUrl = (record: VerificationRecordFull): string | null => {
+    const photoUrls = parseJsonString<string>(record.user?.employee?.facePhotoUrls);
+    return photoUrls.length > 0 ? photoUrls[0] : null;
+  };
+
+  const getInitials = (record: VerificationRecordFull): string => {
+    return record.user?.fullName
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() ?? "??";
+  };
+
+  const Spinner = () => (
+    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+  );
 
   return (
     <div className="space-y-6">
@@ -157,59 +234,84 @@ export function VerificationPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {records.map((record) => (
-            <Card
-              key={record.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => record.status === "pending" && handleOpenRecord(record)}
-            >
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                    {record.user?.fullName
-                      ?.split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase() ?? "???"}
+          {records.map((record) => {
+            const facePhoto = getFacePhotoUrl(record);
+            const isResolved = record.status === "verified" || record.status === "rejected";
+
+            return (
+              <Card key={record.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    {facePhoto ? (
+                      <img
+                        src={facePhoto}
+                        alt={record.user?.fullName ?? "User"}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                        {getInitials(record)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">
+                          {record.user?.fullName ?? "Unknown User"}
+                        </p>
+                        {isResolved && getStatusIcon(record.status)}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {record.user?.employee?.department ?? record.user?.email ?? ""}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {record.user?.fullName ?? "Unknown User"}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {record.user?.email ?? ""}
-                    </p>
+                  <div className="flex items-center justify-between gap-2">
+                    {getStatusBadge(record.status)}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs"
+                      onClick={(e) => handleOpenRecord(record, e)}
+                    >
+                      <Eye className="h-3 w-3" />
+                      View
+                    </Button>
                   </div>
-                </div>
-                <div>{getStatusBadge(record.status)}</div>
-                <div className="text-xs text-muted-foreground">
-                  Submitted: {safeFormat(record.submittedAt, "MMM d, yyyy h:mm a")}
-                </div>
-                {record.status === "rejected" && record.rejectionReason && (
-                  <div className="text-xs text-red-600 bg-red-50 rounded-md p-2">
-                    <span className="font-medium">Reason:</span> {record.rejectionReason}
+                  <div className="text-xs text-muted-foreground">
+                    Submitted: {safeFormat(record.submittedAt, "MMM d, yyyy h:mm a")}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {record.status === "rejected" && record.rejectionReason && (
+                    <div className="text-xs text-red-600 bg-red-50 rounded-md p-2">
+                      <span className="font-medium">Reason:</span> {record.rejectionReason}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* Review Dialog */}
+      {/* Review / View Dialog */}
       <Dialog open={showDialog} onOpenChange={(open) => {
         setShowDialog(open);
         if (!open) {
           setShowRejectForm(false);
+          setShowResubmitForm(false);
           setRejectReason("");
         }
       }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Review Face Verification</DialogTitle>
+            <DialogTitle>
+              {selectedRecord?.status === "pending"
+                ? "Review Face Verification"
+                : "View Verification Details"}
+            </DialogTitle>
             <DialogDescription>
-              Review the video submission for {selectedRecord?.user?.fullName}
+              {selectedRecord?.status === "pending"
+                ? `Review the video submission for ${selectedRecord?.user?.fullName}`
+                : `Verification details for ${selectedRecord?.user?.fullName}`}
             </DialogDescription>
           </DialogHeader>
 
@@ -217,31 +319,72 @@ export function VerificationPage() {
             <div className="space-y-4">
               {/* User info */}
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                  {selectedRecord.user?.fullName
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase() ?? "???"}
-                </div>
-                <div>
+                {getFacePhotoUrl(selectedRecord) ? (
+                  <img
+                    src={getFacePhotoUrl(selectedRecord)!}
+                    alt={selectedRecord.user?.fullName ?? "User"}
+                    className="h-12 w-12 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary/10 text-primary font-semibold">
+                    {getInitials(selectedRecord)}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
                   <p className="font-medium">{selectedRecord.user?.fullName}</p>
                   <p className="text-sm text-muted-foreground">{selectedRecord.user?.email}</p>
+                  {selectedRecord.user?.employee?.department && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Department: {selectedRecord.user.employee.department}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  {getStatusBadge(selectedRecord.status)}
                 </div>
               </div>
 
+              {/* Face Photos */}
+              {(() => {
+                const photos = parseJsonString<string>(selectedRecord.user?.employee?.facePhotoUrls);
+                if (photos.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <ImageIcon className="h-4 w-4" />
+                      Face Photos
+                    </div>
+                    <div className="flex gap-3 flex-wrap">
+                      {photos.map((url, idx) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt={`Face photo ${idx + 1}`}
+                          className="h-24 w-24 rounded-lg object-cover border"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Video Player */}
               {selectedRecord.videoUrl ? (
-                <div className="rounded-lg overflow-hidden bg-black">
-                  <video
-                    src={selectedRecord.videoUrl}
-                    controls
-                    className="w-full max-h-64 object-contain"
-                    preload="metadata"
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Play className="h-4 w-4" />
+                    Verification Video
+                  </div>
+                  <div className="rounded-lg overflow-hidden bg-black">
+                    <video
+                      src={selectedRecord.videoUrl}
+                      controls
+                      className="w-full max-h-64 object-contain"
+                      preload="metadata"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-48 rounded-lg bg-muted/50 border-2 border-dashed">
@@ -257,73 +400,149 @@ export function VerificationPage() {
                 Submitted on {safeFormat(selectedRecord.submittedAt, "MMMM d, yyyy 'at' h:mm a")}
               </p>
 
-              {/* Reject reason form */}
-              {showRejectForm && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Rejection Reason</label>
-                  <Textarea
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Provide a reason for rejecting this verification..."
-                    className="min-h-[80px]"
-                  />
+              {/* Reviewer info (for resolved) */}
+              {selectedRecord.status !== "pending" && selectedRecord.reviewer && (
+                <p className="text-xs text-muted-foreground">
+                  Reviewed by {selectedRecord.reviewer.fullName}
+                </p>
+              )}
+
+              {/* Rejection reason (for rejected) */}
+              {selectedRecord.status === "rejected" && selectedRecord.rejectionReason && (
+                <div className="text-sm text-red-600 bg-red-50 rounded-md p-3">
+                  <span className="font-medium">Rejection Reason:</span>{" "}
+                  {selectedRecord.rejectionReason}
                 </div>
               )}
 
-              {/* Actions */}
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                {!showRejectForm ? (
-                  <>
-                    <Button
-                      variant="destructive"
-                      onClick={() => setShowRejectForm(true)}
-                      disabled={actionLoading}
-                      className="gap-2"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Reject
-                    </Button>
-                    <Button
-                      onClick={handleApprove}
-                      disabled={actionLoading}
-                      className="gap-2"
-                    >
-                      {actionLoading ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4" />
-                      )}
-                      Approve
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowRejectForm(false);
-                        setRejectReason("");
-                      }}
-                      disabled={actionLoading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={handleReject}
-                      disabled={actionLoading || !rejectReason.trim()}
-                      className="gap-2"
-                    >
-                      {actionLoading ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
-                      Confirm Rejection
-                    </Button>
-                  </>
-                )}
-              </DialogFooter>
+              {/* Pending: action forms */}
+              {selectedRecord.status === "pending" && (
+                <>
+                  {showRejectForm && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Rejection Reason</label>
+                      <Textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Provide a reason for rejecting this verification..."
+                        className="min-h-[80px]"
+                      />
+                    </div>
+                  )}
+
+                  {showResubmitForm && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Resubmission Reason</label>
+                      <Textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Provide guidance for resubmission (e.g., better lighting, clearer face angle)..."
+                        className="min-h-[80px]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <DialogFooter className="flex-col sm:flex-row gap-2">
+                    {!showRejectForm && !showResubmitForm ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowResubmitForm(true);
+                            setShowRejectForm(false);
+                            setRejectReason("");
+                          }}
+                          disabled={actionLoading}
+                          className="gap-2"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          Request Resubmit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            setShowRejectForm(true);
+                            setShowResubmitForm(false);
+                            setRejectReason("");
+                          }}
+                          disabled={actionLoading}
+                          className="gap-2"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          Reject
+                        </Button>
+                        <Button
+                          onClick={handleApprove}
+                          disabled={actionLoading}
+                          className="gap-2"
+                        >
+                          {actionLoading ? <Spinner /> : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          Approve
+                        </Button>
+                      </>
+                    ) : showRejectForm ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowRejectForm(false);
+                            setRejectReason("");
+                          }}
+                          disabled={actionLoading}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={handleReject}
+                          disabled={actionLoading || !rejectReason.trim()}
+                          className="gap-2"
+                        >
+                          {actionLoading ? <Spinner /> : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          Confirm Rejection
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowResubmitForm(false);
+                            setRejectReason("");
+                          }}
+                          disabled={actionLoading}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleResubmit}
+                          disabled={actionLoading || !rejectReason.trim()}
+                          className="gap-2"
+                        >
+                          {actionLoading ? <Spinner /> : (
+                            <RotateCcw className="h-4 w-4" />
+                          )}
+                          Request Resubmit
+                        </Button>
+                      </>
+                    )}
+                  </DialogFooter>
+                </>
+              )}
+
+              {/* Non-pending: just close button */}
+              {selectedRecord.status !== "pending" && (
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowDialog(false)}>
+                    Close
+                  </Button>
+                </DialogFooter>
+              )}
             </div>
           )}
         </DialogContent>

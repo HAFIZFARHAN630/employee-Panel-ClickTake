@@ -9,9 +9,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Store, Save } from "lucide-react";
+import { Store, Save, Plus, MapPin, Phone, Tag, FileText, UserCircle } from "lucide-react";
+import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
+
+// ============ HELPERS ============
+
+interface BusinessEntry {
+  id: string;
+  data: BusinessData;
+  assignedEmployeeId: string;
+  assignedDepartment: string;
+  savedAt: string;
+}
 
 function parseJsonField(value: string): string {
   try {
@@ -24,20 +36,23 @@ function parseJsonField(value: string): string {
   }
 }
 
+function parseJsonArray(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // split by comma
+  }
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function toJsonString(value: string): string {
   if (!value.trim()) return "[]";
   const items = value.split(",").map((s) => s.trim()).filter(Boolean);
   return JSON.stringify(items);
-}
-
-function toJsonObjectString(value: string, existing: string): string {
-  if (!value.trim() && !existing.trim()) return "{}";
-  try {
-    const obj = JSON.parse(existing);
-    return JSON.stringify(obj);
-  } catch {
-    return "{}";
-  }
 }
 
 const defaultData: BusinessData = {
@@ -65,11 +80,34 @@ const defaultData: BusinessData = {
   updatedAt: "",
 };
 
+const STORAGE_KEY = "ems_business_entries";
+
+function loadEntries(): BusinessEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveEntries(entries: BusinessEntry[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+// ============ COMPONENT ============
+
 export function BusinessDataPage() {
   const [data, setData] = useState<BusinessData>(defaultData);
-  const [rawData, setRawData] = useState<BusinessData>(defaultData);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [entries, setEntries] = useState<BusinessEntry[]>([]);
+
+  // Assignment fields
+  const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
+  const [assignedDepartment, setAssignedDepartment] = useState("");
 
   // Social media individual fields
   const [socialFields, setSocialFields] = useState({
@@ -89,15 +127,19 @@ export function BusinessDataPage() {
     focusAreas: "",
   });
 
-  const fetchBusinessData = useCallback(async () => {
+  // Initialize
+  const initialize = useCallback(async () => {
     try {
       setLoading(true);
+      // Load saved entries from localStorage
+      const stored = loadEntries();
+      setEntries(stored);
+
+      // Load current business data from API
       const result = await api.get<BusinessData>("/api/business-data");
       if (result && result.id) {
-        setRawData(result);
         setData(result);
 
-        // Parse social media JSON
         try {
           const social = JSON.parse(result.socialMedia);
           setSocialFields({
@@ -113,7 +155,6 @@ export function BusinessDataPage() {
           // keep defaults
         }
 
-        // Parse work targets JSON
         try {
           const wt = JSON.parse(result.workTargets);
           setWorkFields({
@@ -133,14 +174,26 @@ export function BusinessDataPage() {
   }, []);
 
   useEffect(() => {
-    fetchBusinessData();
-  }, [fetchBusinessData]);
+    initialize();
+  }, [initialize]);
 
   function updateField(field: keyof BusinessData, value: string) {
     setData((prev) => ({ ...prev, [field]: value }));
   }
 
+  function resetForm() {
+    setData({ ...defaultData });
+    setSocialFields({ facebook: "", instagram: "", tiktok: "", pinterest: "", youtube: "", linkedin: "", blog: "" });
+    setWorkFields({ dailyCalls: "", dailyCustomers: "", focusAreas: "" });
+    setAssignedEmployeeId("");
+    setAssignedDepartment("");
+  }
+
   async function handleSave() {
+    if (!data.businessName.trim()) {
+      toast.error("Business name is required");
+      return;
+    }
     try {
       setSaving(true);
 
@@ -157,7 +210,21 @@ export function BusinessDataPage() {
         workTargets: JSON.stringify(wtObj),
       };
 
-      await api.put("/api/business-data", payload);
+      const saved = await api.put<BusinessData>("/api/business-data", payload);
+
+      // Add to entries list
+      const newEntry: BusinessEntry = {
+        id: saved.id || crypto.randomUUID(),
+        data: { ...payload, id: saved.id || "", createdAt: saved.createdAt, updatedAt: saved.updatedAt },
+        assignedEmployeeId,
+        assignedDepartment,
+        savedAt: new Date().toISOString(),
+      };
+
+      const updatedEntries = [newEntry, ...entries];
+      setEntries(updatedEntries);
+      saveEntries(updatedEntries);
+
       toast.success("Business data saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
@@ -165,6 +232,21 @@ export function BusinessDataPage() {
       setSaving(false);
     }
   }
+
+  function handleAddNew() {
+    resetForm();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast.info("Form reset — fill in a new business entry");
+  }
+
+  function handleDeleteEntry(index: number) {
+    const updated = entries.filter((_, i) => i !== index);
+    setEntries(updated);
+    saveEntries(updated);
+    toast.success("Entry removed from list");
+  }
+
+  // ============ RENDER ============
 
   if (loading) {
     return (
@@ -185,7 +267,8 @@ export function BusinessDataPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
             <Store className="w-5 h-5 text-primary" />
@@ -197,11 +280,45 @@ export function BusinessDataPage() {
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="w-4 h-4 mr-2" />
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleAddNew}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Business Data
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
+
+      {/* Assignment Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <UserCircle className="h-4 w-4" />
+            Assignment
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Assign to Employee</Label>
+            <EmployeeSearchDropdown
+              value={assignedEmployeeId}
+              onChange={setAssignedEmployeeId}
+              placeholder="Search and select an employee..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Assign to Department</Label>
+            <Input
+              value={assignedDepartment}
+              onChange={(e) => setAssignedDepartment(e.target.value)}
+              placeholder="e.g., Marketing, Engineering"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Business Info */}
       <Card>
@@ -461,12 +578,110 @@ export function BusinessDataPage() {
       </Card>
 
       {/* Save Button (bottom) */}
-      <div className="flex justify-end pb-4">
+      <div className="flex flex-col sm:flex-row justify-end gap-2 pb-4">
+        <Button variant="outline" onClick={handleAddNew}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Business Data
+        </Button>
         <Button onClick={handleSave} disabled={saving} size="lg">
           <Save className="w-4 h-4 mr-2" />
           {saving ? "Saving..." : "Save All Changes"}
         </Button>
       </div>
+
+      {/* Saved Entries */}
+      {entries.length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Saved Business Entries ({entries.length})
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {entries.map((entry, index) => {
+                const services = parseJsonArray(entry.data.services);
+                return (
+                  <Card key={entry.id + "-" + index} className="relative group">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base truncate pr-8">
+                        {entry.data.businessName || "Untitled Business"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {entry.data.address && (
+                        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          <span className="line-clamp-2">
+                            {entry.data.address}
+                            {entry.data.city ? `, ${entry.data.city}` : ""}
+                          </span>
+                        </div>
+                      )}
+
+                      {entry.data.contactNumber && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{entry.data.contactNumber}</span>
+                        </div>
+                      )}
+
+                      {services.length > 0 && (
+                        <div className="flex items-start gap-2 text-sm">
+                          <Tag className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                          <div className="flex flex-wrap gap-1">
+                            {services.slice(0, 5).map((s, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs">
+                                {s}
+                              </Badge>
+                            ))}
+                            {services.length > 5 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{services.length - 5}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {entry.data.shortDescription && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                          {entry.data.shortDescription}
+                        </p>
+                      )}
+
+                      {(entry.assignedEmployeeId || entry.assignedDepartment) && (
+                        <div className="pt-2 border-t text-xs text-muted-foreground space-y-1">
+                          {entry.assignedDepartment && (
+                            <p>Dept: <span className="font-medium text-foreground">{entry.assignedDepartment}</span></p>
+                          )}
+                          {entry.assignedEmployeeId && (
+                            <p>Employee: <span className="font-medium text-foreground">{entry.assignedEmployeeId}</span></p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-[10px] text-muted-foreground">
+                          Saved {new Date(entry.savedAt).toLocaleDateString()}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDeleteEntry(index)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

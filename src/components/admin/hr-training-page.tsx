@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, GraduationCap, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, GraduationCap, Search, Bot, Info } from "lucide-react";
 import { toast } from "sonner";
 
 // ============ HELPERS ============
@@ -190,6 +190,28 @@ export function HRTrainingPage() {
           Add Entry
         </Button>
       </div>
+
+      {/* Explanation Section */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="p-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+            <Bot className="h-5 w-5 text-primary" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <Info className="h-3.5 w-3.5" />
+              About This Knowledge Base
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              This knowledge base trains the HR Chatbot. Add common HR questions and answers here
+              to improve the AI assistant&apos;s responses. Categories help organize entries by topic
+              such as company policies, onboarding procedures, employee benefits, code of conduct,
+              and safety guidelines. The more comprehensive this base is, the better the chatbot
+              can assist employees with HR-related queries.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Search */}
       <div className="relative max-w-sm">

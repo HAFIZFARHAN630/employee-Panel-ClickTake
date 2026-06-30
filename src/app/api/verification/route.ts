@@ -8,27 +8,43 @@ export async function GET(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
-    const users = await db.user.findMany({
-      where: { isActive: true },
-      select: {
-        id: true, email: true, fullName: true, userType: true,
-        isFaceVerified: true,
-        employee: { select: { id: true, department: true } },
-        verificationRecords: {
-          select: { id: true, videoUrl: true, status: true, rejectionReason: true, submittedAt: true },
-          orderBy: { createdAt: "desc" },
-          take: 1,
+    // Return verification records with nested user data (matches frontend expectations)
+    const records = await db.verificationRecord.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            userType: true,
+            avatarUrl: true,
+            isFaceVerified: true,
+            isActive: true,
+            employee: {
+              select: { id: true, department: true, designation: true, facePhotoUrls: true },
+            },
+          },
+        },
+        reviewer: {
+          select: { id: true, fullName: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { submittedAt: "desc" },
     });
 
     return NextResponse.json(
-      users.map((u) => ({
-        ...u,
-        createdAt: u.verificationRecords[0]?.submittedAt?.toISOString() || "",
-        verificationRecord: u.verificationRecords[0] || null,
-        verificationRecords: undefined,
+      records.map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        user: r.user,
+        videoUrl: r.videoUrl,
+        status: r.status,
+        reviewedBy: r.reviewedBy,
+        reviewer: r.reviewer,
+        rejectionReason: r.rejectionReason,
+        submittedAt: r.submittedAt.toISOString(),
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
       }))
     );
   } catch (error) {

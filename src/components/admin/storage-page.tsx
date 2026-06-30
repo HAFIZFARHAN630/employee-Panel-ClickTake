@@ -2,203 +2,270 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import type { VerificationRecord, AgreementTemplate, Asset } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HardDrive, Trash2, Image as ImageIcon, Calendar, User } from "lucide-react";
-import { toast } from "sonner";
-import { format } from "date-fns";
+  HardDrive,
+  Video,
+  FileSignature,
+  Package,
+  Users,
+  ArrowRight,
+} from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
-interface TimeProof {
-  id: string;
-  timeLogId: string;
-  imageUrl: string;
-  capturedAt: string;
-  timeLog?: { user?: { fullName: string; email: string } } | null;
+// ============ STAT CARD ============
+
+interface StorageStatProps {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  description: string;
+  color: string;
+  loading: boolean;
 }
 
-export function StoragePage() {
-  const [proofs, setProofs] = useState<TimeProof[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [ageFilter, setAgeFilter] = useState("all");
+function StorageStatCard({ title, value, icon: Icon, description, color, loading }: StorageStatProps) {
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            {loading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <p className="text-3xl font-bold">{value}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">{description}</p>
+          </div>
+          <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${color}`}>
+            <Icon className="h-6 w-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-  const fetchProofs = useCallback(async () => {
+// ============ MAIN COMPONENT ============
+
+export function StoragePage() {
+  const { setAdminPage } = useAuth();
+
+  const [verificationCount, setVerificationCount] = useState(0);
+  const [agreementCount, setAgreementCount] = useState(0);
+  const [assetCount, setAssetCount] = useState(0);
+  const [signatureTotal, setSignatureTotal] = useState(0);
+
+  const [loadingVerifications, setLoadingVerifications] = useState(true);
+  const [loadingAgreements, setLoadingAgreements] = useState(true);
+  const [loadingAssets, setLoadingAssets] = useState(true);
+
+  const fetchVerifications = useCallback(async () => {
     try {
-      setLoading(true);
-      // Since there's no dedicated proofs API, we'll use time-logs with proof included
-      // For now fetch from a generic endpoint
-      const data = await api.get<TimeProof[]>("/api/time-logs?includeProofs=true");
-      // Flatten proofs from time logs
-      const allProofs: TimeProof[] = [];
-      if (Array.isArray(data)) {
-        for (const item of data) {
-          if ((item as Record<string, unknown>).proofs) {
-            allProofs.push(...((item as Record<string, unknown>).proofs as TimeProof[]));
-          }
-        }
-      }
-      setProofs(allProofs);
+      setLoadingVerifications(true);
+      const data = await api.get<VerificationRecord[]>("/api/verification");
+      setVerificationCount(Array.isArray(data) ? data.length : 0);
     } catch {
-      // If the endpoint doesn't support proofs, show empty
-      setProofs([]);
+      setVerificationCount(0);
     } finally {
-      setLoading(false);
+      setLoadingVerifications(false);
     }
   }, []);
 
-  useEffect(() => { fetchProofs(); }, [fetchProofs]);
-
-  const filteredProofs = proofs.filter(p => {
-    if (ageFilter === "7d") return new Date().getTime() - new Date(p.capturedAt).getTime() < 7 * 86400000;
-    if (ageFilter === "30d") return new Date().getTime() - new Date(p.capturedAt).getTime() < 30 * 86400000;
-    if (ageFilter === "90d") return new Date().getTime() - new Date(p.capturedAt).getTime() < 90 * 86400000;
-    return true;
-  });
-
-  const handleBulkDelete = async () => {
+  const fetchAgreements = useCallback(async () => {
     try {
-      toast.info("Bulk delete would remove old proofs (implementation needs Cloudinary API)");
+      setLoadingAgreements(true);
+      const data = await api.get<(AgreementTemplate & { _count?: { signatures: number } })[]>("/api/agreements");
+      if (Array.isArray(data)) {
+        setAgreementCount(data.length);
+        const totalSigs = data.reduce((sum, t) => sum + (t._count?.signatures ?? 0), 0);
+        setSignatureTotal(totalSigs);
+      }
     } catch {
-      toast.error("Failed to delete proofs");
+      setAgreementCount(0);
+      setSignatureTotal(0);
+    } finally {
+      setLoadingAgreements(false);
     }
-  };
+  }, []);
+
+  const fetchAssets = useCallback(async () => {
+    try {
+      setLoadingAssets(true);
+      const data = await api.get<Asset[]>("/api/assets");
+      setAssetCount(Array.isArray(data) ? data.length : 0);
+    } catch {
+      setAssetCount(0);
+    } finally {
+      setLoadingAssets(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVerifications();
+    fetchAgreements();
+    fetchAssets();
+  }, [fetchVerifications, fetchAgreements, fetchAssets]);
+
+  const allLoading = loadingVerifications && loadingAgreements && loadingAssets;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-            <HardDrive className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Storage Management</h2>
-            <p className="text-sm text-muted-foreground">
-              View and manage time tracking proofs and screenshots
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+          <HardDrive className="h-5 w-5 text-primary" />
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={ageFilter} onValueChange={setAgeFilter}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="7d">Last 7 Days</SelectItem>
-              <SelectItem value="30d">Last 30 Days</SelectItem>
-              <SelectItem value="90d">Last 90 Days</SelectItem>
-            </SelectContent>
-          </Select>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={filteredProofs.length === 0}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Bulk Delete Old
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Old Proofs?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete time proof screenshots older than the selected period. This cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Storage Management</h2>
+          <p className="text-sm text-muted-foreground">
+            Overview of stored data across the system
+          </p>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <ImageIcon className="h-8 w-8 text-primary/60" />
-            <div>
-              <p className="text-2xl font-bold">{filteredProofs.length}</p>
-              <p className="text-xs text-muted-foreground">Total Proofs</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <Calendar className="h-8 w-8 text-primary/60" />
-            <div>
-              <p className="text-2xl font-bold">{filteredProofs.filter(p => new Date().getTime() - new Date(p.capturedAt).getTime() < 86400000).length}</p>
-              <p className="text-xs text-muted-foreground">Today&apos;s Proofs</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <HardDrive className="h-8 w-8 text-primary/60" />
-            <div>
-              <p className="text-2xl font-bold">~{(filteredProofs.length * 0.5).toFixed(1)} MB</p>
-              <p className="text-xs text-muted-foreground">Estimated Storage</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StorageStatCard
+          title="Verification Videos"
+          value={verificationCount}
+          icon={Video}
+          description="Face verification submissions"
+          color="bg-red-100 text-red-600"
+          loading={loadingVerifications}
+        />
+        <StorageStatCard
+          title="Agreement Templates"
+          value={agreementCount}
+          icon={FileSignature}
+          description="Active policy templates"
+          color="bg-green-100 text-green-600"
+          loading={loadingAgreements}
+        />
+        <StorageStatCard
+          title="Signatures Collected"
+          value={signatureTotal}
+          icon={FileSignature}
+          description="Total employee signatures"
+          color="bg-purple-100 text-purple-600"
+          loading={loadingAgreements}
+        />
+        <StorageStatCard
+          title="Company Assets"
+          value={assetCount}
+          icon={Package}
+          description="Tracked inventory items"
+          color="bg-amber-100 text-amber-600"
+          loading={loadingAssets}
+        />
       </div>
 
-      {/* Proofs Grid */}
-      {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-square rounded-lg" />
-          ))}
-        </div>
-      ) : filteredProofs.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <HardDrive className="h-12 w-12 mb-3 opacity-30" />
-            <p className="text-sm">No proofs found</p>
-            <p className="text-xs mt-1">Time tracking proofs will appear here</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {filteredProofs.map(proof => (
-            <Card key={proof.id} className="overflow-hidden group">
-              <div className="aspect-square bg-muted relative">
-                {proof.imageUrl ? (
-                  <img src={proof.imageUrl} alt="Time proof screenshot" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
-                  </div>
-                )}
-              </div>
-              <CardContent className="p-2">
-                <p className="text-[10px] text-muted-foreground">
-                  {format(new Date(proof.capturedAt), "MMM d, yyyy HH:mm")}
-                </p>
-                {proof.timeLog?.user?.fullName && (
-                  <p className="text-[10px] text-muted-foreground truncate">
-                    {proof.timeLog.user.fullName}
-                  </p>
-                )}
+      {allLoading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-3 w-60" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-20 mb-4" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
               </CardContent>
             </Card>
           ))}
+        </div>
+      ) : (
+        /* Detail Cards */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Verification Detail */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Video className="h-4 w-4 text-red-500" />
+                  Verifications
+                </CardTitle>
+              </div>
+              <CardDescription>Face verification records submitted by employees</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-3xl font-bold">{verificationCount}</p>
+              <p className="text-sm text-muted-foreground">
+                {verificationCount === 0
+                  ? "No verification records yet"
+                  : `${verificationCount} record${verificationCount !== 1 ? "s" : ""} in the system`}
+              </p>
+              <button
+                onClick={() => setAdminPage("verification")}
+                className="flex items-center gap-1 text-sm text-primary hover:underline mt-2"
+              >
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </CardContent>
+          </Card>
+
+          {/* Agreements Detail */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileSignature className="h-4 w-4 text-green-500" />
+                  Agreements
+                </CardTitle>
+              </div>
+              <CardDescription>Policy templates and employee signatures</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold">{agreementCount}</p>
+                <span className="text-sm text-muted-foreground">templates</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold">{signatureTotal}</p>
+                <span className="text-sm text-muted-foreground">signatures</span>
+              </div>
+              <button
+                onClick={() => setAdminPage("agreements")}
+                className="flex items-center gap-1 text-sm text-primary hover:underline mt-2"
+              >
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </CardContent>
+          </Card>
+
+          {/* Assets Detail */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Package className="h-4 w-4 text-amber-500" />
+                  Assets
+                </CardTitle>
+              </div>
+              <CardDescription>Company assets and equipment tracked in the system</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-3xl font-bold">{assetCount}</p>
+              <p className="text-sm text-muted-foreground">
+                {assetCount === 0
+                  ? "No assets tracked yet"
+                  : `${assetCount} asset${assetCount !== 1 ? "s" : ""} registered`}
+              </p>
+              <button
+                onClick={() => setAdminPage("assets")}
+                className="flex items-center gap-1 text-sm text-primary hover:underline mt-2"
+              >
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

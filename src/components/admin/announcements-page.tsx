@@ -77,7 +77,8 @@ interface AnnouncementFormData {
   content: string;
   priority: AnnouncementPriority;
   status: AnnouncementStatus;
-  expiresAt: string;
+  expiresAtDate: string;
+  expiresAtTime: string;
 }
 
 const emptyForm: AnnouncementFormData = {
@@ -86,7 +87,8 @@ const emptyForm: AnnouncementFormData = {
   content: "",
   priority: "normal",
   status: "draft",
-  expiresAt: "",
+  expiresAtDate: "",
+  expiresAtTime: "",
 };
 
 export function AnnouncementsPage() {
@@ -125,13 +127,15 @@ export function AnnouncementsPage() {
 
   const openEditDialog = (a: Announcement) => {
     setEditing(a);
+    const expiresAt = a.expiresAt ? new Date(a.expiresAt) : null;
     setFormData({
       title: a.title,
       description: a.description,
       content: a.content,
       priority: a.priority,
       status: a.status,
-      expiresAt: a.expiresAt ? a.expiresAt.slice(0, 16) : "",
+      expiresAtDate: expiresAt ? expiresAt.toISOString().slice(0, 10) : "",
+      expiresAtTime: expiresAt ? `${String(expiresAt.getHours()).padStart(2, "0")}:${String(expiresAt.getMinutes()).padStart(2, "0")}` : "",
     });
     setDialogOpen(true);
   };
@@ -143,13 +147,20 @@ export function AnnouncementsPage() {
     }
     try {
       setSaving(true);
+      // Combine date + time into expiresAt
+      let expiresAt: string | null = null;
+      if (formData.expiresAtDate) {
+        const time = formData.expiresAtTime || "00:00";
+        expiresAt = `${formData.expiresAtDate}T${time}`;
+      }
+
       const body = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         content: formData.content.trim(),
         priority: formData.priority,
         status: formData.status,
-        expiresAt: formData.expiresAt || null,
+        expiresAt,
       };
 
       if (editing) {
@@ -467,18 +478,33 @@ export function AnnouncementsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ann-expires">Expires At</Label>
-                <Input
-                  id="ann-expires"
-                  type="datetime-local"
-                  value={formData.expiresAt}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      expiresAt: e.target.value,
-                    }))
-                  }
-                />
+                <Label>Expires At</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={formData.expiresAtDate}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        expiresAtDate: e.target.value,
+                      }))
+                    }
+                    className="flex-1"
+                    placeholder="Date"
+                  />
+                  <Input
+                    type="time"
+                    value={formData.expiresAtTime}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        expiresAtTime: e.target.value,
+                      }))
+                    }
+                    className="w-[130px]"
+                    placeholder="Time"
+                  />
+                </div>
               </div>
             </div>
           </div>

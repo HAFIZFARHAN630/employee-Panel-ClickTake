@@ -29,6 +29,7 @@ import {
   Clock,
   Eye,
   ArrowUpRight,
+  UserX,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -168,6 +169,16 @@ function ProjectTableSkeleton() {
   );
 }
 
+// ============ PENDING APPROVALS TYPES ============
+
+interface PendingUser {
+  id: string;
+  email: string;
+  fullName: string;
+  requestedRole: string | null;
+  createdAt: string;
+}
+
 // ============ MAIN COMPONENT ============
 
 export function DashboardPage() {
@@ -176,9 +187,11 @@ export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingPending, setLoadingPending] = useState(true);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -215,11 +228,23 @@ export function DashboardPage() {
     }
   }, []);
 
+  const fetchPendingApprovals = useCallback(async () => {
+    try {
+      const data = await api.get<PendingUser[]>("/api/auth/pending-approvals");
+      setPendingUsers(Array.isArray(data) ? data : []);
+    } catch {
+      setPendingUsers([]);
+    } finally {
+      setLoadingPending(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
     fetchActivities();
     fetchProjects();
-  }, [fetchStats, fetchActivities, fetchProjects]);
+    fetchPendingApprovals();
+  }, [fetchStats, fetchActivities, fetchProjects, fetchPendingApprovals]);
 
   const topProjects = projects.slice(0, 5);
 
@@ -230,7 +255,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Stats Row */}
+      {/* Quick Stats Row */}
       {loadingStats ? (
         <StatsSkeleton />
       ) : (
@@ -257,19 +282,19 @@ export function DashboardPage() {
             accent="blue"
           />
           <StatCard
-            title="Pending Verifications"
-            value={stats?.unverifiedFaces ?? 0}
+            title="Today's Attendance"
+            value={stats?.presentToday ?? 0}
             icon={UserCheck}
-            trend={stats?.unverifiedFaces > 0 ? "Needs attention" : "All verified"}
+            trend={`${attendanceRate}% attendance rate`}
             accent="amber"
           />
         </div>
       )}
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Three Column Layout on large screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activity */}
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Activity className="h-4 w-4" />
@@ -319,7 +344,7 @@ export function DashboardPage() {
         </Card>
 
         {/* Project Overview */}
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <FolderKanban className="h-4 w-4" />
@@ -363,6 +388,69 @@ export function DashboardPage() {
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{project.progress}% complete</span>
                         <span>{formatCurrency(project.budget)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Pending Approvals */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <UserX className="h-4 w-4" />
+              Pending Approvals
+              {!loadingPending && pendingUsers.length > 0 && (
+                <Badge className="ml-auto">{pendingUsers.length}</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-96">
+              {loadingPending ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : pendingUsers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <UserCheck className="h-10 w-10 mb-3 opacity-30" />
+                  <p className="text-sm">No pending approvals</p>
+                  <p className="text-xs mt-1">All users have been reviewed</p>
+                </div>
+              ) : (
+                <div className="space-y-3 pr-3">
+                  {pendingUsers.slice(0, 10).map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center gap-3 p-2.5 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600 shrink-0 text-xs font-bold">
+                        {user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{user.fullName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {user.requestedRole && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {user.requestedRole}
+                          </Badge>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
+                        </span>
                       </div>
                     </div>
                   ))}

@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -338,12 +339,11 @@ export function AssetsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="asset-assigned">Assigned To (Employee ID)</Label>
-              <Input
-                id="asset-assigned"
+              <Label>Assign To</Label>
+              <EmployeeSearchDropdown
                 value={form.assignedTo}
-                onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
-                placeholder="Leave empty for unassigned"
+                onChange={(val) => setForm({ ...form, assignedTo: val })}
+                placeholder="Search employee..."
               />
             </div>
           </div>

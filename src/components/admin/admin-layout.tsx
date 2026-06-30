@@ -236,28 +236,30 @@ function SidebarContent({
   collapsed: boolean;
 }) {
   return (
-    <ScrollArea className="flex-1 px-2 py-3">
-      <nav className="flex flex-col gap-1">
-        {adminNavGroups.map((group) => (
-          <div key={group.group} className="mb-1">
-            {!collapsed && (
-              <p className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] select-none">
-                {group.group}
-              </p>
-            )}
-            {group.items.map((item) => (
-              <NavItemButton
-                key={item.id}
-                item={item}
-                isActive={currentPage === item.id}
-                collapsed={collapsed}
-                onNavigate={onNavigate}
-              />
-            ))}
-          </div>
-        ))}
-      </nav>
-    </ScrollArea>
+    <div className="flex-1 overflow-hidden">
+      <ScrollArea className="h-full px-2 py-3">
+        <nav className="flex flex-col gap-1">
+          {adminNavGroups.map((group) => (
+            <div key={group.group} className="mb-1">
+              {!collapsed && (
+                <p className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] select-none">
+                  {group.group}
+                </p>
+              )}
+              {group.items.map((item) => (
+                <NavItemButton
+                  key={item.id}
+                  item={item}
+                  isActive={currentPage === item.id}
+                  collapsed={collapsed}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </div>
+          ))}
+        </nav>
+      </ScrollArea>
+    </div>
   );
 }
 

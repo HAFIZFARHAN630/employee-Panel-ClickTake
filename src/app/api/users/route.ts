@@ -77,15 +77,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Email already exists" }, { status: 409 });
     }
 
+    const userTypeVal = userType || "employee";
+    const isEmployeeType = userTypeVal === "employee" || userTypeVal === "freelancer" || userTypeVal === "manager";
+
     const user = await db.user.create({
       data: {
         email,
         fullName,
         password: password || "",
-        userType: userType || "employee",
+        userType: userTypeVal,
         role: role || "viewer",
         isActive: isActive !== undefined ? isActive : true,
+        ...(isEmployeeType
+          ? {
+              employee: {
+                create: {
+                  department: body.department || "General",
+                  designation: body.designation || "Employee",
+                },
+              },
+            }
+          : {}),
       },
+      include: { employee: true },
     });
 
     return NextResponse.json(

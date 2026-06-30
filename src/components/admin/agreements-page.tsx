@@ -13,6 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -39,11 +41,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, FileText, Download, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Download, Eye, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 // ============ HELPERS ============
+
+const AVAILABLE_ROLES = ["admin", "employee", "manager", "freelancer", "hr", "super_admin"];
 
 function getStatusBadge(isActive: boolean) {
   return isActive ? (
@@ -68,8 +72,8 @@ function parseList(val: string | unknown): string[] {
 interface AgreementFormData {
   title: string;
   content: string;
-  applicableRoles: string;
-  applicableDepartments: string;
+  applicableRoles: string[];
+  applicableDepartments: string[];
   version: string;
   isActive: boolean;
   departmentId: string;
@@ -78,8 +82,8 @@ interface AgreementFormData {
 const emptyForm: AgreementFormData = {
   title: "",
   content: "",
-  applicableRoles: "",
-  applicableDepartments: "",
+  applicableRoles: [],
+  applicableDepartments: [],
   version: "1.0",
   isActive: true,
   departmentId: "",
@@ -102,6 +106,10 @@ export function AgreementsPage() {
   const [signatures, setSignatures] = useState<(EmployeeSignature & { employee?: { user: { fullName: string; email: string } } })[]>([]);
   const [signaturesLoading, setSignaturesLoading] = useState(false);
   const [printAgreement, setPrintAgreement] = useState<AgreementTemplate | null>(null);
+
+  // Multi-select open states
+  const [rolesOpen, setRolesOpen] = useState(false);
+  const [deptsOpen, setDeptsOpen] = useState(false);
 
   const fetchAgreements = useCallback(async () => {
     try {
@@ -131,8 +139,8 @@ export function AgreementsPage() {
     setForm({
       title: agreement.title,
       content: agreement.content,
-      applicableRoles: parseList(agreement.applicableRoles).join(", "),
-      applicableDepartments: parseList(agreement.applicableDepartments).join(", "),
+      applicableRoles: parseList(agreement.applicableRoles),
+      applicableDepartments: parseList(agreement.applicableDepartments),
       version: agreement.version,
       isActive: agreement.isActive,
       departmentId: (agreement as unknown as Record<string, unknown>).departmentId as string || "",
@@ -151,11 +159,16 @@ export function AgreementsPage() {
     }
     try {
       setSaving(true);
+      const payload = {
+        ...form,
+        applicableRoles: form.applicableRoles.join(", "),
+        applicableDepartments: form.applicableDepartments.join(", "),
+      };
       if (editingAgreement) {
-        await api.put(`/api/agreements/${editingAgreement.id}`, form);
+        await api.put(`/api/agreements/${editingAgreement.id}`, payload);
         toast.success("Agreement updated successfully");
       } else {
-        await api.post("/api/agreements", form);
+        await api.post("/api/agreements", payload);
         toast.success("Agreement created successfully");
       }
       setDialogOpen(false);
@@ -204,6 +217,24 @@ export function AgreementsPage() {
 
   const deptName = (agreement: AgreementTemplate) =>
     ((agreement as unknown as Record<string, unknown>).department as { name: string } | undefined)?.name || null;
+
+  const toggleRole = (role: string) => {
+    setForm((prev) => ({
+      ...prev,
+      applicableRoles: prev.applicableRoles.includes(role)
+        ? prev.applicableRoles.filter((r) => r !== role)
+        : [...prev.applicableRoles, role],
+    }));
+  };
+
+  const toggleDept = (deptName: string) => {
+    setForm((prev) => ({
+      ...prev,
+      applicableDepartments: prev.applicableDepartments.includes(deptName)
+        ? prev.applicableDepartments.filter((d) => d !== deptName)
+        : [...prev.applicableDepartments, deptName],
+    }));
+  };
 
   return (
     <div className="space-y-6">
@@ -386,23 +417,76 @@ export function AgreementsPage() {
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Applicable Roles Multi-Select */}
               <div className="space-y-2">
-                <Label htmlFor="agreement-roles">Applicable Roles (comma-separated)</Label>
-                <Input
-                  id="agreement-roles"
-                  value={form.applicableRoles}
-                  onChange={(e) => setForm({ ...form, applicableRoles: e.target.value })}
-                  placeholder="employee, manager"
-                />
+                <Label>Applicable Roles</Label>
+                <Popover open={rolesOpen} onOpenChange={setRolesOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal">
+                      {form.applicableRoles.length > 0
+                        ? form.applicableRoles.join(", ")
+                        : "Select roles..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {AVAILABLE_ROLES.map((role) => (
+                        <label
+                          key={role}
+                          className="flex items-center gap-2 cursor-pointer rounded-sm px-2 py-1.5 hover:bg-accent transition-colors"
+                        >
+                          <Checkbox
+                            checked={form.applicableRoles.includes(role)}
+                            onCheckedChange={() => toggleRole(role)}
+                          />
+                          <span className="text-sm capitalize">{role.replace("_", " ")}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {form.applicableRoles.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Leave empty to apply to all roles</p>
+                )}
               </div>
+
+              {/* Applicable Departments Multi-Select */}
               <div className="space-y-2">
-                <Label htmlFor="agreement-depts">Applicable Departments (comma-separated)</Label>
-                <Input
-                  id="agreement-depts"
-                  value={form.applicableDepartments}
-                  onChange={(e) => setForm({ ...form, applicableDepartments: e.target.value })}
-                  placeholder="Engineering, Design"
-                />
+                <Label>Applicable Departments</Label>
+                <Popover open={deptsOpen} onOpenChange={setDeptsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal">
+                      {form.applicableDepartments.length > 0
+                        ? form.applicableDepartments.join(", ")
+                        : "Select departments..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {departments.length === 0 ? (
+                        <p className="text-sm text-muted-foreground px-2 py-1.5">No departments found</p>
+                      ) : (
+                        departments.map((dept) => (
+                          <label
+                            key={dept.id}
+                            className="flex items-center gap-2 cursor-pointer rounded-sm px-2 py-1.5 hover:bg-accent transition-colors"
+                          >
+                            <Checkbox
+                              checked={form.applicableDepartments.includes(dept.name)}
+                              onCheckedChange={() => toggleDept(dept.name)}
+                            />
+                            <span className="text-sm">{dept.name}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {form.applicableDepartments.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Leave empty to apply to all departments</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3">

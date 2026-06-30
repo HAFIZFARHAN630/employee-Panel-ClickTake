@@ -14,9 +14,11 @@ import { toast } from "sonner";
 
 // ============ HELPERS ============
 
-function parseJsonString<T>(str: string): T[] {
+function parseJsonString<T>(str: string | unknown): T[] {
+  if (!str) return [];
+  if (Array.isArray(str)) return str as T[];
   try {
-    const parsed = JSON.parse(str);
+    const parsed = JSON.parse(str as string);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -27,9 +29,11 @@ function toJsonString(arr: string[]): string {
   return JSON.stringify(arr);
 }
 
-function parseJsonObject<T extends Record<string, string>>(str: string): T {
+function parseJsonObject<T extends Record<string, string>>(str: string | unknown): T {
+  if (!str) return {} as T;
+  if (typeof str === "object" && str !== null && !Array.isArray(str)) return str as T;
   try {
-    return JSON.parse(str);
+    return JSON.parse(str as string);
   } catch {
     return {} as T;
   }
@@ -42,6 +46,8 @@ function toJsonObject(obj: Record<string, string>): string {
 // ============ FORM STATE ============
 
 interface BrandingFormState {
+  companyName: string;
+  tagline: string;
   logoUrls: string[];
   officeLocations: { address: string; lat: string; lng: string }[];
   contactEmails: string[];
@@ -52,6 +58,8 @@ interface BrandingFormState {
 }
 
 const defaultForm: BrandingFormState = {
+  companyName: "",
+  tagline: "",
   logoUrls: [""],
   officeLocations: [{ address: "", lat: "", lng: "" }],
   contactEmails: [""],
@@ -75,6 +83,8 @@ export function BrandingPage() {
       const data = await api.get<BrandingSettings>("/api/branding");
       setBrandingId(data.id);
       setForm({
+        companyName: data.companyName || "",
+        tagline: data.tagline || "",
         logoUrls: parseJsonString<string>(data.logoUrls).length > 0 ? parseJsonString<string>(data.logoUrls) : [""],
         officeLocations: parseJsonString(data.officeLocations).length > 0
           ? parseJsonString(data.officeLocations)
@@ -104,6 +114,8 @@ export function BrandingPage() {
     try {
       setSaving(true);
       const payload = {
+        companyName: form.companyName.trim(),
+        tagline: form.tagline.trim(),
         logoUrls: toJsonString(form.logoUrls.filter((u) => u.trim())),
         officeLocations: toJsonString(form.officeLocations.filter((l) => l.address.trim())),
         contactEmails: toJsonString(form.contactEmails.filter((e) => e.trim())),
@@ -112,12 +124,14 @@ export function BrandingPage() {
         primaryColor: form.primaryColor,
         secondaryColor: form.secondaryColor,
       };
-      if (brandingId) {
-        await api.put("/api/branding", payload);
-      } else {
-        await api.post("/api/branding", payload);
+      // Always use PUT — the API handles both create and update
+      const result = await api.put<BrandingSettings>("/api/branding", payload);
+      if (result?.id) {
+        setBrandingId(result.id);
       }
       toast.success("Branding settings saved successfully");
+      // Re-sync state from server
+      fetchBranding();
     } catch {
       toast.error("Failed to save branding settings");
     } finally {
@@ -205,6 +219,33 @@ export function BrandingPage() {
           Save Changes
         </Button>
       </div>
+
+      {/* Company Identity */}
+      <Card>
+        <CardContent className="p-4 sm:p-6">
+          <h3 className="font-semibold mb-3">Company Identity</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="company-name">Company Name</Label>
+              <Input
+                id="company-name"
+                value={form.companyName}
+                onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                placeholder="Your Company Name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tagline">Tagline</Label>
+              <Input
+                id="tagline"
+                value={form.tagline}
+                onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+                placeholder="Your company tagline or slogan"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Logo URLs */}
       <Card>

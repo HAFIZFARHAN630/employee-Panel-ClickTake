@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import type { EmployeeProject, AssignmentStatus, User, Project } from "@/lib/types";
+import type { EmployeeProject, AssignmentStatus, Project } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, RefreshCw, Search } from "lucide-react";
 import { format } from "date-fns";
+import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
 
 const STATUS_VARIANT: Record<AssignmentStatus, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
@@ -46,12 +47,6 @@ const STATUS_CLASS: Record<AssignmentStatus, string> = {
 
 const TAB_VALUES: ("all" | AssignmentStatus)[] = ["all", "pending", "accepted", "rejected", "completed"];
 
-interface EmployeeOption {
-  id: string;
-  fullName: string;
-  department: string;
-}
-
 export function AssignmentsPage() {
   const [assignments, setAssignments] = useState<EmployeeProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +55,6 @@ export function AssignmentsPage() {
 
   // New assignment dialog
   const [newDialogOpen, setNewDialogOpen] = useState(false);
-  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
@@ -87,25 +81,10 @@ export function AssignmentsPage() {
     }
   }, [activeTab]);
 
-  const fetchEmployees = useCallback(async () => {
-    try {
-      const data = await api.get<User[]>("/api/users", { type: "employee" });
-      setEmployees(
-        data.map((u) => ({
-          id: u.id,
-          fullName: u.fullName,
-          department: u.employee?.department ?? "N/A",
-        }))
-      );
-    } catch {
-      setEmployees([]);
-    }
-  }, []);
-
   const fetchProjects = useCallback(async () => {
     try {
-      const data = await api.get<Project[]>("/api/projects", { status: "active" });
-      setProjects(data);
+      const data = await api.get<Project[]>("/api/projects");
+      setProjects(Array.isArray(data) ? data : []);
     } catch {
       setProjects([]);
     }
@@ -117,10 +96,9 @@ export function AssignmentsPage() {
 
   useEffect(() => {
     if (newDialogOpen) {
-      fetchEmployees();
       fetchProjects();
     }
-  }, [newDialogOpen, fetchEmployees, fetchProjects]);
+  }, [newDialogOpen, fetchProjects]);
 
   const handleCreateAssignment = async () => {
     if (!selectedEmployee || !selectedProject) return;
@@ -202,18 +180,11 @@ export function AssignmentsPage() {
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label>Employee</Label>
-                  <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select employee..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.fullName} — {emp.department}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <EmployeeSearchDropdown
+                    value={selectedEmployee}
+                    onChange={setSelectedEmployee}
+                    placeholder="Search employee..."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Project</Label>

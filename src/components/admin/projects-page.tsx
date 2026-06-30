@@ -9,6 +9,7 @@ import type {
   ProjectStatus,
   ProjectPriority,
   EmployeeProject,
+  Department,
 } from "@/lib/types";
 import {
   Card,
@@ -62,18 +63,12 @@ import {
   Inbox,
   Trash2,
   Copy,
-  UserPlus,
   Check,
 } from "lucide-react";
 
 import { toast } from "sonner";
-
-interface SimpleUser {
-  id: string;
-  fullName: string;
-  email: string;
-  employee?: { id: string } | null;
-}
+import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
+import type { User } from "@/lib/types";
 
 // ============ FORM TYPES ============
 
@@ -84,6 +79,7 @@ interface ProjectFormData {
   priority: ProjectPriority;
   budget: number;
   tags: string;
+  department: string;
 }
 
 const defaultProjectForm: ProjectFormData = {
@@ -93,6 +89,7 @@ const defaultProjectForm: ProjectFormData = {
   priority: "medium",
   budget: 0,
   tags: "",
+  department: "",
 };
 
 // ============ SKELETON ============
@@ -159,14 +156,29 @@ export function ProjectsPage() {
 
   // Generate tasks state
   const [generatingTasks, setGeneratingTasks] = useState<string | null>(null);
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [generateProjectId, setGenerateProjectId] = useState<string | null>(null);
+  const [requirementsText, setRequirementsText] = useState("");
+  const [generateSubmitting, setGenerateSubmitting] = useState(false);
 
-  // User search state for multi-employee assignment
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const [userSearchResults, setUserSearchResults] = useState<SimpleUser[]>([]);
+  // Department state
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Employee search state for multi-employee assignment
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [selectedEmployeeNames, setSelectedEmployeeNames] = useState<Map<string, string>>(new Map());
-  const [searchingUsers, setSearchingUsers] = useState(false);
   const [assigningEmployees, setAssigningEmployees] = useState(false);
+  const [employeeDropdownValue, setEmployeeDropdownValue] = useState("");
+
+  // Fetch departments
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const data = await api.get<Department[]>("/api/departments");
+      setDepartments(Array.isArray(data) ? data : []);
+    } catch {
+      setDepartments([]);
+    }
+  }, []);
 
   // Delete state
   const [deletingProject, setDeletingProject] = useState<string | null>(null);
@@ -213,6 +225,10 @@ export function ProjectsPage() {
     setEditingProject(null);
     setFormData(defaultProjectForm);
     setFormErrors({});
+    setSelectedEmployeeIds([]);
+    setSelectedEmployeeNames(new Map());
+    setEmployeeDropdownValue("");
+    fetchDepartments();
     setFormDialogOpen(true);
   }
 
@@ -225,8 +241,10 @@ export function ProjectsPage() {
       priority: project.priority,
       budget: project.budget,
       tags: project.tags,
+      department: project.department ?? "",
     });
     setFormErrors({});
+    fetchDepartments();
     setFormDialogOpen(true);
   }
 
@@ -336,32 +354,47 @@ export function ProjectsPage() {
 
   // ============ GENERATE TASKS ============
 
-  async function handleGenerateTasks(project: Project) {
-    if (generatingTasks === project.id) return;
-    setGeneratingTasks(project.id);
+  function openGenerateDialog(project: Project) {
+    setGenerateProjectId(project.id);
+    setRequirementsText("");
+    setGenerateDialogOpen(true);
+  }
+
+  async function handleGenerateTasks() {
+    if (!generateProjectId) return;
+    setGenerateSubmitting(true);
+    setGeneratingTasks(generateProjectId);
     try {
-      // First generate task suggestions
       const suggestions = await api.post<{ tasks: { title: string; description: string }[] }>(
-        `/api/projects/${project.id}/generate-tasks`
+        `/api/projects/${generateProjectId}/generate-tasks`,
+        { requirements: requirementsText }
       );
 
-      // Then create the tasks
       if (suggestions.tasks && suggestions.tasks.length > 0) {
-        await api.post(`/api/projects/${project.id}/tasks`, {
+        await api.post(`/api/projects/${generateProjectId}/tasks`, {
           tasks: suggestions.tasks,
         });
       }
 
-      // Refresh projects
+      toast.success("Tasks generated successfully");
+      setGenerateDialogOpen(false);
+
+      // Refresh detail if the dialog is for the current detail project
+      if (detailProject?.id === generateProjectId) {
+        const tasksData = await api.get<ProjectTask[]>(`/api/projects/${generateProjectId}/tasks`);
+        setDetailTasks(Array.isArray(tasksData) ? tasksData : []);
+      }
+
       fetchProjects();
     } catch {
-      // silently handle
+      toast.error("Failed to generate tasks");
     } finally {
+      setGenerateSubmitting(false);
       setGeneratingTasks(null);
     }
   }
 
-  // ============ DELETE / DUPLICATE ============
+  // ============ DELETE / DUPLICATE =============
 
   async function handleDeleteProject(projectId: string) {
     if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
@@ -390,39 +423,31 @@ export function ProjectsPage() {
     }
   }
 
-  // ============ USER SEARCH FOR ASSIGNMENT ============
+  // ============ EMPLOYEE MULTI-ASSIGNMENT ============
 
-  async function searchUsers(query: string) {
-    setUserSearchQuery(query);
-    if (query.length < 2) {
-      setUserSearchResults([]);
+  function handleEmployeeDropdownChange(userId: string) {
+    if (!userId) return;
+    // Check if already added
+    if (selectedEmployeeIds.includes(userId)) {
+      toast.error("Employee already added");
+      setEmployeeDropdownValue("");
       return;
     }
-    setSearchingUsers(true);
-    try {
-      const data = await api.get<SimpleUser[]>("/api/users", { search: query, type: "employee" });
-      const users = Array.isArray(data) ? data : [];
-      setUserSearchResults(users);
-    } catch {
-      setUserSearchResults([]);
-    } finally {
-      setSearchingUsers(false);
-    }
-  }
-
-  function addEmployeeToAssignment(user: SimpleUser) {
-    if (!user.employee?.id) {
-      toast.error("This user has no employee record");
-      return;
-    }
-    if (selectedEmployeeIds.includes(user.employee.id)) {
-      toast.error("Already added");
-      return;
-    }
-    setSelectedEmployeeIds((prev) => [...prev, user.employee!.id]);
-    setSelectedEmployeeNames((prev) => new Map(prev).set(user.employee!.id, user.fullName || user.email));
-    setUserSearchQuery("");
-    setUserSearchResults([]);
+    // Fetch user to get employee id and name
+    api.get<User>(`/api/users/${userId}`)
+      .then((user) => {
+        const empId = user.employee?.id;
+        if (!empId) {
+          toast.error("This user has no employee record");
+          return;
+        }
+        setSelectedEmployeeIds((prev) => [...prev, empId]);
+        setSelectedEmployeeNames((prev) => new Map(prev).set(empId, user.fullName || user.email));
+      })
+      .catch(() => {
+        toast.error("Failed to fetch employee data");
+      });
+    setEmployeeDropdownValue("");
   }
 
   function removeEmployeeFromAssignment(empId: string) {
@@ -773,39 +798,36 @@ export function ProjectsPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select
+                value={formData.department}
+                onValueChange={(v) =>
+                  setFormData((f) => ({ ...f, department: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Multi-Employee Assignment (only on create) */}
             {!editingProject && (
               <div className="space-y-3">
                 <Label>Assign Employees</Label>
-                <div className="relative">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Search employees by name or email..."
-                      value={userSearchQuery}
-                      onChange={(e) => searchUsers(e.target.value)}
-                      className="flex-1"
-                    />
-                    {searchingUsers && (
-                      <Loader2 className="h-4 w-4 animate-spin mt-3 absolute right-3 top-0" />
-                    )}
-                  </div>
-                  {userSearchResults.length > 0 && (
-                    <div className="absolute z-50 top-full mt-1 w-full border rounded-lg bg-popover shadow-md max-h-48 overflow-y-auto">
-                      {userSearchResults.map((u) => (
-                        <button
-                          key={u.id}
-                          className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left transition-colors"
-                          onClick={() => addEmployeeToAssignment(u)}
-                          disabled={!u.employee?.id}
-                        >
-                          <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-medium">{u.fullName}</span>
-                          <span className="text-xs text-muted-foreground ml-auto">{u.email}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <EmployeeSearchDropdown
+                  value={employeeDropdownValue}
+                  onChange={handleEmployeeDropdownChange}
+                  placeholder="Search and select employee to assign..."
+                />
                 {selectedEmployeeIds.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {selectedEmployeeIds.map((empId) => {
@@ -927,7 +949,7 @@ export function ProjectsPage() {
                     variant="outline"
                     size="sm"
                     disabled={generatingTasks === detailProject.id}
-                    onClick={() => handleGenerateTasks(detailProject)}
+                    onClick={() => openGenerateDialog(detailProject)}
                   >
                     {generatingTasks === detailProject.id ? (
                       <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -1048,6 +1070,58 @@ export function ProjectsPage() {
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Tasks Dialog */}
+      <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Generate Tasks with AI
+            </DialogTitle>
+            <DialogDescription>
+              Describe the project requirements and AI will generate a task breakdown.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="requirements">Project Requirements</Label>
+              <Textarea
+                id="requirements"
+                placeholder="Describe the project scope, goals, key deliverables, and any specific phases or milestones..."
+                rows={6}
+                value={requirementsText}
+                onChange={(e) => setRequirementsText(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setGenerateDialogOpen(false)}
+              disabled={generateSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGenerateTasks}
+              disabled={generateSubmitting || !requirementsText.trim()}
+            >
+              {generateSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate Tasks
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
