@@ -2,12 +2,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import jwt from "jsonwebtoken";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
 export interface AuthResult {
   userId: string;
   email: string;
@@ -24,7 +18,13 @@ export interface TokenPayload {
 export function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    // Fallback for dev — in-memory tokens still work in dev mode
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("FATAL: JWT_SECRET environment variable is not set. Refusing to start in production.");
+    }
+    console.warn(
+      "[SECURITY] JWT_SECRET not set — using insecure dev-only secret. " +
+      "Set JWT_SECRET before deploying to production."
+    );
     return "dev-only-secret-do-not-use-in-production";
   }
   return secret;
@@ -45,13 +45,13 @@ export function verifyJwtToken(token: string): TokenPayload | null {
 export async function authenticate(req: Request): Promise<AuthResult | NextResponse> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401, headers: CORS_HEADERS });
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   const token = authHeader.replace("Bearer ", "");
   const tokenData = verifyJwtToken(token);
   if (!tokenData) {
-    return NextResponse.json({ message: "Invalid or expired token" }, { status: 401, headers: CORS_HEADERS });
+    return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 });
   }
 
   const user = await db.user.findUnique({
@@ -60,7 +60,7 @@ export async function authenticate(req: Request): Promise<AuthResult | NextRespo
   });
 
   if (!user || !user.isActive) {
-    return NextResponse.json({ message: "User not found or disabled" }, { status: 401, headers: CORS_HEADERS });
+    return NextResponse.json({ message: "User not found or disabled" }, { status: 401 });
   }
 
   return {

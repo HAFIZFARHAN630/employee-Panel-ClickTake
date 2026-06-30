@@ -42,12 +42,14 @@ model User {
   isFaceVerified  Boolean  @default(false) @map("is_face_verified")
   avatarUrl       String?  @map("avatar_url")
   tenantId        String?  @map("tenant_id")
+  onboardingStatus String   @default("pending") @map("onboarding_status")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   tenant            Tenant?           @relation(fields: [tenantId], references: [id])
   individualUser    IndividualUser?
   employee          Employee?
+  onboardingData    EmployeeOnboardingData?
   notifications     Notification[]
   createdProjects   Project[]         @relation("ProjectCreator")
   ownedProjects     Project[]         @relation("ProjectOwner")
@@ -605,4 +607,24 @@ model BusinessData {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("business_data")
+}
+
+// ============ EMPLOYEE ONBOARDING DATA ============
+model EmployeeOnboardingData {
+  id                   String   @id @default(uuid())
+  userId               String   @unique @map("user_id")
+  section1Personal     Json     @default("{}") @map("section1_personal")
+  section2Contact      Json     @default("{}") @map("section2_contact")
+  section3Emergency    Json     @default("{}") @map("section3_emergency")
+  section4Education    Json     @default("{}") @map("section4_education")
+  section5Experience   Json     @default("{}") @map("section5_experience")
+  section6Banking      Json     @default("{}") @map("section6_banking")
+  section7Documents    Json     @default("{}") @map("section7_documents")
+  section8Declaration  Json     @default("{}") @map("section8_declaration")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("employee_onboarding_data")
 }

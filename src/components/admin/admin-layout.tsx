@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { AdminPage, Notification } from "@/lib/types";
@@ -46,6 +46,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
@@ -78,6 +79,8 @@ import {
   Webhook,
   Store,
   HardDrive,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -87,124 +90,174 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-const adminNavItems: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "users", label: "Users", icon: Users },
-  { id: "departments", label: "Departments", icon: Building2 },
-  { id: "awards", label: "Awards", icon: Trophy },
-  { id: "assets", label: "Assets", icon: Package },
-  { id: "projects", label: "Projects", icon: FolderKanban },
-  { id: "assignments", label: "Assignments", icon: UserCheck },
-  { id: "attendance", label: "Attendance", icon: CalendarCheck },
-  { id: "shifts", label: "Shifts", icon: Clock },
-  { id: "leaves", label: "Leave Management", icon: CalendarOff },
-  { id: "time-tracking", label: "Time Tracking", icon: Timer },
-  { id: "live-tracking", label: "Live Tracking", icon: Radio },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "announcements", label: "Announcements", icon: Megaphone },
-  { id: "rbac", label: "RBAC", icon: Shield },
-  { id: "ai-config", label: "AI Config", icon: Brain },
-  { id: "hr-training", label: "HR Training", icon: GraduationCap },
-  { id: "activity-log", label: "Activity Log", icon: ScrollText },
-  { id: "verification", label: "Verification", icon: ScanFace },
-  { id: "agreements", label: "Agreements", icon: FileText },
-  { id: "chat", label: "Chat", icon: MessageSquare },
-  { id: "branding", label: "Branding", icon: Palette },
-  { id: "integrations", label: "Integrations", icon: Webhook },
-  { id: "business-data", label: "Business Data", icon: Store },
-  { id: "storage", label: "Storage", icon: HardDrive },
-  { id: "settings", label: "Settings", icon: Settings },
+interface NavGroup {
+  group: string;
+  items: NavItem[];
+}
+
+const adminNavGroups: NavGroup[] = [
+  {
+    group: "MAIN",
+    items: [
+      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    group: "WORKFORCE",
+    items: [
+      { id: "users", label: "Users", icon: Users },
+      { id: "departments", label: "Departments", icon: Building2 },
+      { id: "awards", label: "Awards", icon: Trophy },
+      { id: "assets", label: "Assets", icon: Package },
+      { id: "verification", label: "Verification", icon: ScanFace },
+    ],
+  },
+  {
+    group: "WORK MANAGEMENT",
+    items: [
+      { id: "projects", label: "Projects", icon: FolderKanban },
+      { id: "assignments", label: "Assignments", icon: UserCheck },
+      { id: "time-tracking", label: "Time Tracking", icon: Timer },
+      { id: "live-tracking", label: "Live Tracking", icon: Radio },
+    ],
+  },
+  {
+    group: "HR & ATTENDANCE",
+    items: [
+      { id: "attendance", label: "Attendance", icon: CalendarCheck },
+      { id: "shifts", label: "Shifts", icon: Clock },
+      { id: "leaves", label: "Leave Management", icon: CalendarOff },
+    ],
+  },
+  {
+    group: "COMMUNICATION",
+    items: [
+      { id: "chat", label: "Chat", icon: MessageSquare },
+      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "announcements", label: "Announcements", icon: Megaphone },
+    ],
+  },
+  {
+    group: "ADMIN & SECURITY",
+    items: [
+      { id: "rbac", label: "RBAC", icon: Shield },
+      { id: "agreements", label: "Agreements", icon: FileText },
+      { id: "activity-log", label: "Activity Log", icon: ScrollText },
+    ],
+  },
+  {
+    group: "SYSTEM & AI",
+    items: [
+      { id: "ai-config", label: "AI Config", icon: Brain },
+      { id: "hr-training", label: "HR Training", icon: GraduationCap },
+      { id: "integrations", label: "Integrations", icon: Webhook },
+    ],
+  },
+  {
+    group: "DATA & SETTINGS",
+    items: [
+      { id: "business-data", label: "Business Data", icon: Store },
+      { id: "storage", label: "Storage", icon: HardDrive },
+      { id: "branding", label: "Branding", icon: Palette },
+      { id: "settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 function getPageTitle(page: AdminPage): string {
-  const item = adminNavItems.find((n) => n.id === page);
-  return item?.label ?? "Dashboard";
+  for (const group of adminNavGroups) {
+    const item = group.items.find((n) => n.id === page);
+    if (item) return item.label;
+  }
+  return "Dashboard";
+}
+
+function NavItemButton({
+  item,
+  isActive,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  collapsed: boolean;
+  onNavigate: (page: AdminPage) => void;
+}) {
+  const Icon = item.icon;
+
+  const button = (
+    <button
+      onClick={() => onNavigate(item.id)}
+      className={`
+        flex items-center gap-3 rounded-lg text-sm font-medium
+        transition-all duration-200 cursor-pointer text-left w-full
+        ${
+          isActive
+            ? "text-white border-l-[3px]"
+            : "text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] hover:text-foreground border-l-[3px] border-transparent"
+        }
+        ${collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"}
+      `}
+      style={
+        isActive
+          ? {
+              background: "linear-gradient(135deg, var(--color-purple), #a855f7)",
+              borderColor: "var(--color-purple)",
+            }
+          : undefined
+      }
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {!collapsed && <span>{item.label}</span>}
+    </button>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          {item.label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return button;
 }
 
 function SidebarContent({
   currentPage,
   onNavigate,
-  onLogout,
-  userFullName,
-  branding,
+  collapsed,
 }: {
   currentPage: AdminPage;
   onNavigate: (page: AdminPage) => void;
-  onLogout: () => void;
-  userFullName: string;
-  branding: { logoUrl?: string; companyName?: string } | null;
+  collapsed: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5">
-        {branding?.logoUrl ? (
-          <img src={branding.logoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-cover" />
-        ) : (
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground">
-            <Building2 className="w-5 h-5" />
-          </div>
-        )}
-        <div>
-          <h2 className="text-base font-bold tracking-tight leading-none">
-            {branding?.companyName || "EMS"}
-          </h2>
-          <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
-            Admin Panel
-          </p>
-        </div>
-      </div>
-      <Separator />
-
-      {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-3">
-        <nav className="flex flex-col gap-1">
-          {adminNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentPage === item.id;
-            return (
-              <button
+    <ScrollArea className="flex-1 px-2 py-3">
+      <nav className="flex flex-col gap-1">
+        {adminNavGroups.map((group) => (
+          <div key={group.group} className="mb-1">
+            {!collapsed && (
+              <p className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] select-none">
+                {group.group}
+              </p>
+            )}
+            {group.items.map((item) => (
+              <NavItemButton
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`
-                  flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium
-                  transition-colors cursor-pointer text-left w-full
-                  ${
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
-                  }
-                `}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-      </ScrollArea>
-
-      {/* User section at bottom */}
-      <Separator />
-      <div className="px-3 py-3">
-        <div className="flex items-center gap-3 px-3 py-2">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-              {userFullName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(0, 2)
-                .toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{userFullName}</p>
-            <p className="text-xs text-muted-foreground truncate">Administrator</p>
+                item={item}
+                isActive={currentPage === item.id}
+                collapsed={collapsed}
+                onNavigate={onNavigate}
+              />
+            ))}
           </div>
-        </div>
-      </div>
-    </div>
+        ))}
+      </nav>
+    </ScrollArea>
   );
 }
 
@@ -236,25 +289,164 @@ export function AdminLayout() {
       .catch(() => {});
   }, [user?.id]);
 
+  // Sidebar collapse state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("admin-sidebar-collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("admin-sidebar-collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // Mobile sheet state
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleMobileNavigate = useCallback(
+    (page: AdminPage) => {
+      setAdminPage(page);
+      setMobileOpen(false);
+    },
+    [setAdminPage]
+  );
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-64 lg:w-64 flex-col border-r bg-card h-screen sticky top-0">
-        <SidebarContent
-          currentPage={adminPage}
-          onNavigate={setAdminPage}
-          onLogout={logout}
-          userFullName={userFullName}
-          branding={branding}
-        />
-      </aside>
+      <TooltipProvider delayDuration={0}>
+        <aside
+          className="hidden md:flex flex-col border-r h-screen sticky top-0 transition-[width] duration-300 ease-in-out"
+          style={{
+            width: sidebarCollapsed ? 70 : 256,
+            background: "var(--bg-secondary)",
+          }}
+        >
+          {/* Logo area */}
+          <div
+            className="flex items-center gap-3 px-4 py-5 shrink-0"
+            style={{ justifyContent: sidebarCollapsed ? "center" : "flex-start" }}
+          >
+            {branding?.logoUrl ? (
+              <img
+                src={branding.logoUrl}
+                alt="Logo"
+                className="w-9 h-9 rounded-lg object-cover shrink-0"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+            )}
+            {!sidebarCollapsed && (
+              <div className="overflow-hidden">
+                <h2 className="text-base font-bold tracking-tight leading-none truncate">
+                  {branding?.companyName || "EMS"}
+                </h2>
+                <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
+                  Admin Panel
+                </p>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Navigation */}
+          <SidebarContent
+            currentPage={adminPage}
+            onNavigate={setAdminPage}
+            collapsed={sidebarCollapsed}
+          />
+
+          {/* Bottom: User + Collapse toggle */}
+          <Separator />
+          <div className="shrink-0 px-2 py-3 flex flex-col gap-1">
+            {!sidebarCollapsed && (
+              <div className="flex items-center gap-3 px-3 py-2">
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                    {userFullName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{userFullName}</p>
+                  <p className="text-xs text-muted-foreground truncate">Administrator</p>
+                </div>
+              </div>
+            )}
+
+            {sidebarCollapsed && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex justify-center py-1">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                        {userFullName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {userFullName}
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size={sidebarCollapsed ? "icon" : "sm"}
+                  onClick={toggleSidebar}
+                  className={sidebarCollapsed ? "mx-auto w-9 h-9" : "w-full justify-start gap-3 px-3"}
+                  aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                  {sidebarCollapsed ? (
+                    <PanelLeftOpen className="h-4 w-4" />
+                  ) : (
+                    <>
+                      <PanelLeftClose className="h-4 w-4" />
+                      <span className="text-sm">Collapse</span>
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              {sidebarCollapsed && (
+                <TooltipContent side="right" sideOffset={8}>
+                  Expand sidebar
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </div>
+        </aside>
+      </TooltipProvider>
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Top Header */}
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
           {/* Mobile hamburger */}
-          <Sheet>
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
@@ -265,16 +457,52 @@ export function AdminLayout() {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
-              <SidebarContent
-                currentPage={adminPage}
-                onNavigate={(page) => {
-                  setAdminPage(page);
-                }}
-                onLogout={logout}
-                userFullName={userFullName}
-                branding={branding}
-              />
+            <SheetContent side="left" className="w-64 p-0" style={{ background: "var(--bg-secondary)" }}>
+              <div className="flex h-full flex-col">
+                {/* Logo */}
+                <div className="flex items-center gap-3 px-4 py-5">
+                  {branding?.logoUrl ? (
+                    <img src={branding.logoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-base font-bold tracking-tight leading-none">
+                      {branding?.companyName || "EMS"}
+                    </h2>
+                    <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
+                      Admin Panel
+                    </p>
+                  </div>
+                </div>
+                <Separator />
+                <SidebarContent
+                  currentPage={adminPage}
+                  onNavigate={handleMobileNavigate}
+                  collapsed={false}
+                />
+                <Separator />
+                <div className="px-3 py-3">
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                        {userFullName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{userFullName}</p>
+                      <p className="text-xs text-muted-foreground truncate">Administrator</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </SheetContent>
           </Sheet>
 

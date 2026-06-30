@@ -1,7 +1,7 @@
 // When deployed on Firebase, API calls must go to the Render backend.
 // When on Render (self-hosted), API calls are relative (same origin).
 // Falls back to "" (relative) in dev mode.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface FetchOptions extends RequestInit {
   params?: Record<string, string>;
@@ -20,7 +20,8 @@ export async function apiFetch<T>(
   }
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    // Only set Content-Type for requests with a body (POST/PUT/PATCH)
+    ...(restOptions.body ? { "Content-Type": "application/json" } : {}),
     ...(customHeaders as Record<string, string>),
   };
 
@@ -35,7 +36,8 @@ export async function apiFetch<T>(
             headers["Authorization"] = `Bearer ${parsed.token}`;
           }
         } catch {
-          // ignore
+          // Corrupted auth data — clear it
+          localStorage.removeItem("ems_auth");
         }
       }
     }
@@ -44,8 +46,28 @@ export async function apiFetch<T>(
   const res = await fetch(url, { ...restOptions, headers });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || `HTTP ${res.status}`);
+    const contentType = res.headers.get("content-type") || "";
+    let message = `HTTP ${res.status}`;
+    if (contentType.includes("application/json")) {
+      try {
+        const error = await res.json();
+        message = error.message || message;
+      } catch {
+        // JSON parse failed, use default message
+      }
+    }
+    throw new Error(message);
+  }
+
+  // Handle 204 No Content (no body to parse)
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
+  // Guard against HTML responses on success path
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(`Expected JSON but received ${contentType}`);
   }
 
   return res.json() as Promise<T>;
@@ -64,8 +86,11 @@ export const api = {
   patch: <T>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
 
-  delete: <T>(endpoint: string) =>
-    apiFetch<T>(endpoint, { method: "DELETE" }),
+  delete: <T>(endpoint: string, body?: Record<string, string>) =>
+    apiFetch<T>(endpoint, {
+      method: "DELETE",
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    }),
 };
 
 // Persist auth helper

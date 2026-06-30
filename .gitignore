@@ -52,3 +52,8 @@ prompt
 server.log
 # Skills directory
 /skills/out/
+tool-results/
+dev.log
+*.db
+sidebar-collapsed.png
+sidebar-expanded.png
