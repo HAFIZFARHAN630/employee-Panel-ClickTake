@@ -16,35 +16,41 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # ── Database (set in Render Dashboard → Environment) ──
       - key: DATABASE_URL
-        value: "postgresql://postgres.ggicuqmpkveegsjgmcvc:cTM5%3FZuqCsYk7-5@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
+        sync: false
+      # ── Authentication ──
       - key: JWT_SECRET
-        value: f9c7e16e424084754f272f9a00b87fc25d7ece1c7730fee2fbd446f5294dc3e3
+        sync: false
+      # ── Cloudinary (file uploads) ──
       - key: CLOUDINARY_CLOUD_NAME
-        value: dwioesu97
+        sync: false
       - key: CLOUDINARY_API_KEY
-        value: "641277517839454"
+        sync: false
       - key: CLOUDINARY_API_SECRET
-        value: m55dleAgSVsQqWbQBSaQgbyvoHw
+        sync: false
       - key: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-        value: dwioesu97
+        sync: false
+      # ── Firebase (frontend hosting) ──
       - key: NEXT_PUBLIC_FIREBASE_API_KEY
-        value: AIzaSyC2pGU-k-1pui7VwIp1mDy47P_Y87V7DYo
+        sync: false
       - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-        value: panel-clicktake.firebaseapp.com
+        sync: false
       - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-        value: panel-clicktake
+        sync: false
       - key: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-        value: panel-clicktake.firebasestorage.app
+        sync: false
       - key: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-        value: "446300805588"
+        sync: false
       - key: NEXT_PUBLIC_FIREBASE_APP_ID
-        value: "1:446300805588:web:8347a1e6ee79c3a8a69e41"
+        sync: false
       - key: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-        value: G-NBEKLP05GV
+        sync: false
+      # ── Supabase (optional) ──
       - key: NEXT_PUBLIC_SUPABASE_URL
-        value: https://ggicuqmpkveegsjgmcvc.supabase.co
+        sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnaWN1cW1wa3ZlZWdzamdtY3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjMxMDgsImV4cCI6MjA5Nzc5OTEwOH0.c8qTfunvdONX5JWQ5mJrLY4UTAy13hN1CoRAOdZAU7w
+        sync: false
+      # ── Base URL ──
       - key: NEXT_PUBLIC_BASE_URL
-        value: https://panel-clicktake.web.app
+        sync: false

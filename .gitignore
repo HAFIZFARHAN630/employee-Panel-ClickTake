@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -50,10 +51,20 @@ test
 prompt
 
 server.log
+
+# Database files
+*.db
+db/
+
 # Skills directory
 /skills/out/
 tool-results/
-dev.log
-*.db
+
+# Screenshots & artifacts
 sidebar-collapsed.png
 sidebar-expanded.png
+firebase-frontend.png
+download/
+
+# Work log (internal dev tracking)
+worklog.md
