@@ -604,3 +604,28 @@ Stage Summary:
 - Total API routes: 65+
 - Total admin pages: 26 (was 25)
 - Total employee pages: 13 (was 10, replaced 3 placeholders)
+
+---
+Task ID: deploy-live
+Agent: Main Agent
+Task: Complete testing, deploy to GitHub/Render/Firebase, push DB schema
+
+Work Log:
+- Ran final lint: zero errors
+- Re-applied all QA fixes (api.ts, auth-middleware.ts) that were lost between sessions
+- Rebuilt admin-layout.tsx with 8-category grouped collapsible sidebar
+- Created 5 missing API routes: onboarding/submit-form, onboarding/status, onboarding/data, onboarding/required-policies, settings/reset-all
+- Added onboardingStatus to User model + EmployeeOnboardingData model in schema
+- Generated Prisma client
+- Git committed: "feat: QA fixes, grouped sidebar, onboarding API routes"
+- Merged with remote (resolved 6 conflicts keeping our changes)
+- Pushed to GitHub: main branch updated (f95c359)
+- Render: Auto-deploys from GitHub push — will rebuild with new code
+- Firebase: Firebase CLI not available in sandbox — user must run locally
+- Supabase: Schema pushed successfully (prisma db push) — new tables created
+
+Stage Summary:
+- GitHub: https://github.com/HAFIZFARHAN630/employee-Panel-ClickTake (pushed)
+- Render: Auto-deploying from main branch
+- Firebase: User needs to run: npm run build:firebase && firebase deploy --only hosting
+- Database: Supabase schema updated with onboarding tables
