@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import type { ChatChannel, ChatMessage, User } from "@/lib/types";
+import type { ChatChannel, ChatMessage, User, Project } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,16 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Plus, Send, Hash, Users } from "lucide-react";
+import {
+  MessageSquare,
+  Plus,
+  Send,
+  Hash,
+  Users,
+  Search,
+  Loader2,
+  FolderOpen,
+} from "lucide-react";
 import { format } from "date-fns";
 
 interface TeamUser {
@@ -51,11 +61,22 @@ export function ChatPage() {
   const [channelName, setChannelName] = useState("");
   const [channelType, setChannelType] = useState("team");
   const [sending, setSending] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   // Team tab state
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("channels");
+
+  // Create channel - project & user selection
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [projectMembersNote, setProjectMembersNote] = useState("");
+  const [createUsers, setCreateUsers] = useState<TeamUser[]>([]);
+  const [createUsersLoading, setCreateUsersLoading] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [directUserId, setDirectUserId] = useState("");
+  const [createUserSearch, setCreateUserSearch] = useState("");
 
   const fetchChannels = useCallback(async () => {
     try {
@@ -89,7 +110,7 @@ export function ChatPage() {
   const fetchTeamUsers = useCallback(async () => {
     try {
       setTeamLoading(true);
-      const data = await api.get<User[]>("/api/users?limit=200");
+      const data = await api.get<User[]>("/api/users?limit=200&isActive=true");
       const users: TeamUser[] = (Array.isArray(data) ? data : [])
         .filter((u) => u.id !== user?.id)
         .map((u) => ({
@@ -104,6 +125,35 @@ export function ChatPage() {
       toast.error("Failed to load team members");
     } finally {
       setTeamLoading(false);
+    }
+  }, [user?.id]);
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      const data = await api.get<Project[]>("/api/projects");
+      setProjects(Array.isArray(data) ? data : []);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const fetchCreateUsers = useCallback(async () => {
+    try {
+      setCreateUsersLoading(true);
+      const data = await api.get<User[]>("/api/users?limit=200&isActive=true");
+      const users: TeamUser[] = (Array.isArray(data) ? data : [])
+        .filter((u) => u.id !== user?.id)
+        .map((u) => ({
+          id: u.id,
+          fullName: u.fullName || "Unknown",
+          email: u.email || "",
+          avatarUrl: u.avatarUrl,
+        }));
+      setCreateUsers(users);
+    } catch {
+      // silent
+    } finally {
+      setCreateUsersLoading(false);
     }
   }, [user?.id]);
 
@@ -126,6 +176,15 @@ export function ChatPage() {
     }, 5000);
     return () => clearInterval(interval);
   }, [selectedChannel, fetchMessages]);
+
+  // When channel type changes, reset related state
+  useEffect(() => {
+    setSelectedProjectId("");
+    setProjectMembersNote("");
+    setSelectedMemberIds([]);
+    setDirectUserId("");
+    setCreateUserSearch("");
+  }, [channelType]);
 
   async function handleSend() {
     if (!newMessage.trim() || !selectedChannel) return;
@@ -152,17 +211,51 @@ export function ChatPage() {
       return;
     }
     try {
-      await api.post("/api/chat/channels", {
+      setCreating(true);
+      const body: Record<string, unknown> = {
         name: channelName.trim(),
         type: channelType,
-      });
+      };
+
+      if (channelType === "project" && selectedProjectId) {
+        body.projectId = selectedProjectId;
+      }
+
+      if ((channelType === "group" || channelType === "team") && selectedMemberIds.length > 0) {
+        body.memberIds = selectedMemberIds;
+      }
+
+      if (channelType === "direct" && directUserId) {
+        body.memberIds = [directUserId];
+      }
+
+      await api.post("/api/chat/channels", body);
       toast.success("Channel created");
       setCreateOpen(false);
       setChannelName("");
       setChannelType("team");
+      setSelectedProjectId("");
+      setSelectedMemberIds([]);
+      setDirectUserId("");
+      setCreateUserSearch("");
       fetchChannels();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create channel");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  // When project is selected, note about auto-adding members
+  async function handleProjectSelect(projectId: string) {
+    setSelectedProjectId(projectId);
+    const project = projects.find((p) => p.id === projectId);
+    if (project) {
+      setProjectMembersNote(
+        `All employees assigned to "${project.name}" will be auto-added to this channel.`
+      );
+    } else {
+      setProjectMembersNote("");
     }
   }
 
@@ -186,6 +279,7 @@ export function ChatPage() {
       const dmChannel = await api.post<ChatChannel>("/api/chat/channels", {
         name: `dm-${user?.id || "unknown"}-${teamUser.id}`,
         type: "direct",
+        memberIds: [teamUser.id],
       });
 
       setSelectedChannel(dmChannel);
@@ -203,6 +297,27 @@ export function ChatPage() {
     }
   }
 
+  function openCreateDialog() {
+    setCreateOpen(true);
+    setChannelName("");
+    setChannelType("team");
+    setSelectedProjectId("");
+    setProjectMembersNote("");
+    setSelectedMemberIds([]);
+    setDirectUserId("");
+    setCreateUserSearch("");
+    fetchProjects();
+    fetchCreateUsers();
+  }
+
+  const toggleMember = (userId: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -215,6 +330,17 @@ export function ChatPage() {
   const selectedDmUser = selectedChannel?.type === "direct"
     ? teamUsers.find((u) => selectedChannel.name.includes(u.id))
     : null;
+
+  // Filter create users by search
+  const filteredCreateUsers = useMemo(() => {
+    if (!createUserSearch.trim()) return createUsers;
+    const q = createUserSearch.toLowerCase();
+    return createUsers.filter(
+      (u) =>
+        u.fullName.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+    );
+  }, [createUsers, createUserSearch]);
 
   return (
     <div className="space-y-6">
@@ -230,7 +356,7 @@ export function ChatPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button onClick={openCreateDialog}>
           <Plus className="w-4 h-4 mr-2" />
           New Channel
         </Button>
@@ -481,12 +607,23 @@ export function ChatPage() {
       </Card>
 
       {/* Create Channel Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+      <Dialog open={createOpen} onOpenChange={(open) => {
+        if (!open) {
+          setChannelType("team");
+          setSelectedProjectId("");
+          setProjectMembersNote("");
+          setSelectedMemberIds([]);
+          setDirectUserId("");
+          setCreateUserSearch("");
+        }
+        setCreateOpen(open);
+      }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Channel</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Channel Name */}
             <div className="space-y-2">
               <Label htmlFor="channel-name">Channel Name</Label>
               <Input
@@ -496,8 +633,10 @@ export function ChatPage() {
                 onChange={(e) => setChannelName(e.target.value)}
               />
             </div>
+
+            {/* Channel Type */}
             <div className="space-y-2">
-              <Label>Type</Label>
+              <Label>Channel Type</Label>
               <Select value={channelType} onValueChange={setChannelType}>
                 <SelectTrigger>
                   <SelectValue />
@@ -505,15 +644,175 @@ export function ChatPage() {
                 <SelectContent>
                   <SelectItem value="team">Team</SelectItem>
                   <SelectItem value="project">Project</SelectItem>
+                  <SelectItem value="group">Group</SelectItem>
+                  <SelectItem value="direct">Direct</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Project Selection (when type === "project") */}
+            {channelType === "project" && (
+              <div className="space-y-2">
+                <Label>Select Project</Label>
+                {projects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No projects available</p>
+                ) : (
+                  <Select value={selectedProjectId} onValueChange={handleProjectSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a project..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {projectMembersNote && (
+                  <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50 border text-sm">
+                    <Users className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                    <span>{projectMembersNote}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* User Checkbox List (when type === "group" or "team") */}
+            {(channelType === "group" || channelType === "team") && (
+              <div className="space-y-2">
+                <Label>
+                  Select Members{" "}
+                  {selectedMemberIds.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {selectedMemberIds.length} selected
+                    </Badge>
+                  )}
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    className="pl-9"
+                    value={createUserSearch}
+                    onChange={(e) => setCreateUserSearch(e.target.value)}
+                  />
+                </div>
+                <div className="border rounded-md max-h-48 overflow-y-auto">
+                  {createUsersLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : filteredCreateUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      No users found
+                    </p>
+                  ) : (
+                    <div className="divide-y">
+                      {filteredCreateUsers.map((u) => (
+                        <label
+                          key={u.id}
+                          className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors"
+                        >
+                          <Checkbox
+                            checked={selectedMemberIds.includes(u.id)}
+                            onCheckedChange={() => toggleMember(u.id)}
+                          />
+                          <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
+                              {getInitials(u.fullName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{u.fullName}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Direct Message User Selection (when type === "direct") */}
+            {channelType === "direct" && (
+              <div className="space-y-2">
+                <Label>Select User</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    className="pl-9"
+                    value={createUserSearch}
+                    onChange={(e) => setCreateUserSearch(e.target.value)}
+                  />
+                </div>
+                <div className="border rounded-md max-h-48 overflow-y-auto">
+                  {createUsersLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : filteredCreateUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      No users found
+                    </p>
+                  ) : (
+                    <div className="divide-y">
+                      {filteredCreateUsers.map((u) => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => setDirectUserId(u.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                            directUserId === u.id
+                              ? "bg-accent"
+                              : "hover:bg-accent/50"
+                          }`}
+                        >
+                          <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
+                              {getInitials(u.fullName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{u.fullName}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                          </div>
+                          {directUserId === u.id && (
+                            <Badge variant="default" className="text-[10px] shrink-0">Selected</Badge>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateChannel}>Create</Button>
+            <Button
+              onClick={handleCreateChannel}
+              disabled={
+                creating ||
+                !channelName.trim() ||
+                (channelType === "project" && !selectedProjectId) ||
+                (channelType === "direct" && !directUserId)
+              }
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

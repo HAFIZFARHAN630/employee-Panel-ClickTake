@@ -23,6 +23,7 @@ export async function GET(
       isActive: true,
       isSuperuser: true,
       avatarUrl: true,
+      onboardingStatus: true,
       tenantId: true,
       createdAt: true,
       updatedAt: true,
@@ -54,6 +55,61 @@ export async function GET(
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching user:", error);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await authenticate(req);
+    if (auth instanceof NextResponse) return auth;
+    if (!isAdmin(auth)) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const body = await req.json();
+
+    const updateData: Record<string, unknown> = {};
+    const employeeUpdate: Record<string, unknown> = {};
+
+    if (body.isActive !== undefined) {
+      updateData.isActive = body.isActive;
+    }
+    if (body.onboardingStatus) {
+      updateData.onboardingStatus = body.onboardingStatus;
+    }
+    if (body.role) {
+      updateData.role = body.role;
+    }
+    if (body.department && body.employeeUpdate) {
+      employeeUpdate.department = body.department;
+    }
+
+    const user = await db.user.update({
+      where: { id },
+      data: {
+        ...updateData,
+        ...(Object.keys(employeeUpdate).length > 0
+          ? { employee: { update: employeeUpdate } }
+          : {}),
+      },
+      include: { employee: true },
+    });
+
+    return NextResponse.json({
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    });
+  } catch (error: unknown) {
+    console.error("Error patching user:", error);
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

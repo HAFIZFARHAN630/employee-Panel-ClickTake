@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { api } from "@/lib/api";
 import { getInitials, getUserTypeColor } from "@/lib/utils";
 import type { User, UserType } from "@/lib/types";
@@ -49,6 +49,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -58,12 +59,14 @@ import {
   Pencil,
   Trash2,
   Users,
-  Filter,
   X,
   Clock,
   Check,
   UserX,
   Loader2,
+  UserCog,
+  LogOut,
+  Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -71,6 +74,19 @@ import { toast } from "sonner";
 
 function getUserTypeLabel(type: UserType) {
   return type.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type UserStatus = "active" | "disabled" | "fired" | "left";
+
+function getStatusInfo(user: User): { label: string; status: UserStatus; variant: "default" | "secondary" | "destructive" | "outline"; className: string } {
+  if (!user.isActive) {
+    const os = (user as unknown as { onboardingStatus?: string }).onboardingStatus;
+    if (os === "left") {
+      return { label: "Left", status: "left", variant: "destructive", className: "bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400" };
+    }
+    return { label: "Disabled", status: "disabled", variant: "destructive", className: "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400" };
+  }
+  return { label: "Active", status: "active", variant: "default", className: "bg-green-100 text-green-700 hover:bg-green-100" };
 }
 
 // ============ FORM TYPES ============
@@ -129,6 +145,7 @@ export function UsersPage() {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterRole, setFilterRole] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterDepartment, setFilterDepartment] = useState<string>("all");
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -146,9 +163,25 @@ export function UsersPage() {
   const [pendingLoading, setPendingLoading] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
+  // Status change loading tracker
+  const [statusChangingId, setStatusChangingId] = useState<string | null>(null);
+
   // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  // ============ COMPUTED ============
+
+  // Extract unique departments from user data
+  const departments = useMemo(() => {
+    const deptSet = new Set<string>();
+    users.forEach((u) => {
+      if (u.employee?.department) {
+        deptSet.add(u.employee.department);
+      }
+    });
+    return Array.from(deptSet).sort();
+  }, [users]);
 
   // ============ FETCH ============
 
@@ -175,8 +208,9 @@ export function UsersPage() {
       if (filterType !== "all") params.type = filterType;
       if (filterRole !== "all") params.role = filterRole;
       if (filterStatus !== "all") params.status = filterStatus;
+      if (filterDepartment !== "all") params.department = filterDepartment;
 
-      const data = await api.get<User[] | { data: User[]; total: number }>(
+      const data = await api.get<User[] | { data: User[]; total: number } | { users: User[] }>(
         "/api/users",
         params
       );
@@ -184,6 +218,9 @@ export function UsersPage() {
       if (Array.isArray(data)) {
         setUsers(data);
         setTotalUsers(data.length);
+      } else if ("users" in data) {
+        setUsers(data.users);
+        setTotalUsers(data.users.length);
       } else {
         setUsers(data.data);
         setTotalUsers(data.total);
@@ -193,7 +230,7 @@ export function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, filterType, filterRole, filterStatus, page]);
+  }, [searchQuery, filterType, filterRole, filterStatus, filterDepartment, page]);
 
   useEffect(() => {
     fetchUsers();
@@ -292,6 +329,43 @@ export function UsersPage() {
     }
   }
 
+  async function handleStatusChange(userId: string, newStatus: UserStatus) {
+    setStatusChangingId(userId);
+    try {
+      const patchBody: Record<string, unknown> = {};
+
+      if (newStatus === "active") {
+        patchBody.isActive = true;
+        patchBody.onboardingStatus = "completed";
+      } else if (newStatus === "disabled") {
+        patchBody.isActive = false;
+      } else if (newStatus === "fired" || newStatus === "left") {
+        patchBody.isActive = false;
+        patchBody.onboardingStatus = "left";
+      }
+
+      await api.patch(`/api/users/${userId}`, patchBody);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                isActive: patchBody.isActive as boolean,
+                ...(patchBody.onboardingStatus
+                  ? { onboardingStatus: patchBody.onboardingStatus as string }
+                  : {}),
+              }
+            : u
+        )
+      );
+      toast.success(`User status changed to ${newStatus}`);
+    } catch {
+      toast.error("Failed to change user status");
+    } finally {
+      setStatusChangingId(null);
+    }
+  }
+
   async function handleApprove(userId: string) {
     try {
       await api.post(`/api/auth/pending-approvals/${userId}?action=approve`);
@@ -318,10 +392,11 @@ export function UsersPage() {
     setFilterType("all");
     setFilterRole("all");
     setFilterStatus("all");
+    setFilterDepartment("all");
     setPage(1);
   }
 
-  const hasFilters = searchQuery || filterType !== "all" || filterRole !== "all" || filterStatus !== "all";
+  const hasFilters = searchQuery || filterType !== "all" || filterRole !== "all" || filterStatus !== "all" || filterDepartment !== "all";
   const totalPages = Math.ceil(totalUsers / pageSize);
 
   return (
@@ -454,11 +529,11 @@ export function UsersPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
+            <Select value={filterType} onValueChange={(v) => { setFilterType(v); setPage(1); }}>
               <SelectTrigger className="w-full sm:w-36">
                 <SelectValue placeholder="User Type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="manager">Manager</SelectItem>
@@ -467,26 +542,40 @@ export function UsersPage() {
                 <SelectItem value="client">Client</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterRole} onValueChange={setFilterRole}>
+            <Select value={filterRole} onValueChange={(v) => { setFilterRole(v); setPage(1); }}>
               <SelectTrigger className="w-full sm:w-36">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="manager">Manager</SelectItem>
                 <SelectItem value="employee">Employee</SelectItem>
+                <SelectItem value="freelancer">Freelancer</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1); }}>
               <SelectTrigger className="w-full sm:w-36">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterDepartment} onValueChange={(v) => { setFilterDepartment(v); setPage(1); }}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px] overflow-y-auto">
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {hasFilters && (
@@ -544,96 +633,142 @@ export function UsersPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  users.map((user) => (
-                    <TableRow key={user.id} className="group">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            {user.avatarUrl && (
-                              <AvatarImage
-                                src={user.avatarUrl}
-                                alt={user.fullName}
-                              />
-                            )}
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                              {getInitials(user.fullName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {user.fullName}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate md:hidden">
-                              {user.email}
-                            </p>
+                  users.map((user) => {
+                    const statusInfo = getStatusInfo(user);
+                    const isChanging = statusChangingId === user.id;
+                    const isDisabledOrFired = !user.isActive;
+
+                    return (
+                      <TableRow key={user.id} className={`group ${isDisabledOrFired ? "opacity-70" : ""}`}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              {user.avatarUrl && (
+                                <AvatarImage
+                                  src={user.avatarUrl}
+                                  alt={user.fullName}
+                                />
+                              )}
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {getInitials(user.fullName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {user.fullName}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate md:hidden">
+                                {user.email}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground truncate">
-                          {user.email}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`text-[10px] ${getUserTypeColor(user.userType)}`}
-                        >
-                          {getUserTypeLabel(user.userType)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <Badge variant="outline" className="text-[10px] capitalize">
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {user.employee?.department || "—"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={user.isActive ? "default" : "secondary"}
-                          className={`text-[10px] ${
-                            user.isActive
-                              ? "bg-green-100 text-green-700 hover:bg-green-100"
-                              : "bg-gray-100 text-gray-500 hover:bg-gray-100"
-                          }`}
-                        >
-                          {user.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => openEditDialog(user)}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setDeletingUser(user)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <span className="text-sm text-muted-foreground truncate">
+                            {user.email}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`text-[10px] ${getUserTypeColor(user.userType)}`}
+                          >
+                            {getUserTypeLabel(user.userType)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <Badge variant="outline" className="text-[10px] capitalize">
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <span className="text-sm text-muted-foreground">
+                            {user.employee?.department || "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="focus:outline-none cursor-pointer"
+                                disabled={isChanging}
+                              >
+                                <Badge
+                                  variant={statusInfo.variant}
+                                  className={`text-[10px] cursor-pointer hover:opacity-80 transition-opacity ${statusInfo.className}`}
+                                >
+                                  {isChanging ? (
+                                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                  ) : null}
+                                  {statusInfo.label}
+                                </Badge>
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-40">
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(user.id, "active")}
+                                className={user.isActive ? "bg-accent" : ""}
+                              >
+                                <Check className="h-4 w-4 mr-2 text-green-600" />
+                                Active
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(user.id, "disabled")}
+                                className={!user.isActive && statusInfo.status === "disabled" ? "bg-accent" : ""}
+                              >
+                                <Ban className="h-4 w-4 mr-2 text-red-500" />
+                                Disabled
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(user.id, "fired")}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <UserX className="h-4 w-4 mr-2" />
+                                Fired
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(user.id, "left")}
+                                className={statusInfo.status === "left" ? "bg-accent" : ""}
+                              >
+                                <LogOut className="h-4 w-4 mr-2" />
+                                Left
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => openEditDialog(user)}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeletingUser(user)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -758,7 +893,7 @@ export function UsersPage() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px] overflow-y-auto">
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="employee">Employee</SelectItem>
@@ -779,7 +914,7 @@ export function UsersPage() {
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px] overflow-y-auto">
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="employee">Employee</SelectItem>

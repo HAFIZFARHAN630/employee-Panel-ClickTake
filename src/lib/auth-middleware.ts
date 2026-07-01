@@ -59,8 +59,11 @@ export async function authenticate(req: Request): Promise<AuthResult | NextRespo
     select: { id: true, email: true, userType: true, isSuperuser: true, isActive: true },
   });
 
-  if (!user || !user.isActive) {
-    return NextResponse.json({ message: "User not found or disabled" }, { status: 401 });
+  if (!user) {
+    return NextResponse.json({ message: "User not found" }, { status: 401 });
+  }
+  if (!user.isActive) {
+    return NextResponse.json({ message: "Account Disabled" }, { status: 403 });
   }
 
   return {

@@ -34,7 +34,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (status === "verified") {
       await db.user.update({
         where: { id: record.userId },
-        data: { isFaceVerified: true },
+        data: {
+          isFaceVerified: true,
+          onboardingStatus: "agreements_pending",
+        },
       });
     }
 
@@ -58,7 +61,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (status === "rejected") {
       await db.user.update({
         where: { id: record.userId },
-        data: { isFaceVerified: false },
+        data: {
+          isFaceVerified: false,
+          ...(action === "resubmit" ? { onboardingStatus: "pending" } : {}),
+        },
       });
     }
 

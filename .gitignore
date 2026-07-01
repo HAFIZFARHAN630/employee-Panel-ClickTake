@@ -68,3 +68,5 @@ download/
 
 # Work log (internal dev tracking)
 worklog.md
+agent-ctx/
+tool-results/

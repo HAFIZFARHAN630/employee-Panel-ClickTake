@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import type { Notification, User, AdminPage } from "@/lib/types";
+import type { Notification, AdminPage } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +43,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
 
 type NotificationType =
   | "info"
@@ -138,7 +138,6 @@ const ACTION_URL_MAP: Record<string, AdminPage> = {
 export function NotificationsPage() {
   const { setAdminPage } = useAuth();
   const [notifications, setNotifications] = useState<NotificationWithUser[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<NotificationType>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -162,22 +161,9 @@ export function NotificationsPage() {
     }
   }, [filter]);
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const data = await api.get<User[]>("/api/users?limit=200");
-      setUsers(Array.isArray(data) ? data : []);
-    } catch {
-      // silent
-    }
-  }, []);
-
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
 
   const handleCreate = async () => {
     if (!formUserId || !formMessage.trim()) {
@@ -370,26 +356,29 @@ export function NotificationsPage() {
       )}
 
       {/* Create Notification Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFormUserId("");
+            setFormMessage("");
+            setFormType("info");
+          }
+          setDialogOpen(open);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create Notification</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="notif-user">User</Label>
-              <Select value={formUserId} onValueChange={setFormUserId}>
-                <SelectTrigger id="notif-user">
-                  <SelectValue placeholder="Select a user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.fullName} ({u.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>User</Label>
+              <EmployeeSearchDropdown
+                value={formUserId}
+                onChange={setFormUserId}
+                placeholder="Search and select a user..."
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="notif-type">Type</Label>
@@ -423,7 +412,7 @@ export function NotificationsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={sending}>
+            <Button onClick={handleCreate} disabled={sending || !formUserId || !formMessage.trim()}>
               {sending ? "Sending..." : "Send Notification"}
             </Button>
           </DialogFooter>

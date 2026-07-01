@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import type { BrandingSettings } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Palette, Plus, Trash2, Save } from "lucide-react";
+import { Palette, Plus, Trash2, Save, Upload, Loader2, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 
 // ============ HELPERS ============
@@ -49,6 +49,7 @@ interface BrandingFormState {
   companyName: string;
   tagline: string;
   logoUrls: string[];
+  faviconUrl: string;
   officeLocations: { address: string; lat: string; lng: string }[];
   contactEmails: string[];
   contactPhones: string[];
@@ -61,6 +62,7 @@ const defaultForm: BrandingFormState = {
   companyName: "",
   tagline: "",
   logoUrls: [""],
+  faviconUrl: "",
   officeLocations: [{ address: "", lat: "", lng: "" }],
   contactEmails: [""],
   contactPhones: [""],
@@ -76,6 +78,8 @@ export function BrandingPage() {
   const [saving, setSaving] = useState(false);
   const [brandingId, setBrandingId] = useState<string>("");
   const [form, setForm] = useState<BrandingFormState>(defaultForm);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBranding = useCallback(async () => {
     try {
@@ -86,6 +90,7 @@ export function BrandingPage() {
         companyName: data.companyName || "",
         tagline: data.tagline || "",
         logoUrls: parseJsonString<string>(data.logoUrls).length > 0 ? parseJsonString<string>(data.logoUrls) : [""],
+        faviconUrl: (data as Record<string, string>).faviconUrl || "",
         officeLocations: parseJsonString(data.officeLocations).length > 0
           ? parseJsonString(data.officeLocations)
           : [{ address: "", lat: "", lng: "" }],
@@ -123,20 +128,84 @@ export function BrandingPage() {
         socialMediaLinks: toJsonObject(form.socialMedia),
         primaryColor: form.primaryColor,
         secondaryColor: form.secondaryColor,
+        faviconUrl: form.faviconUrl.trim(),
       };
-      // Always use PUT — the API handles both create and update
       const result = await api.put<BrandingSettings>("/api/branding", payload);
       if (result?.id) {
         setBrandingId(result.id);
       }
       toast.success("Branding settings saved successfully");
-      // Re-sync state from server
+
+      // Live-update the browser favicon
+      const newUrl = form.faviconUrl.trim();
+      if (newUrl) {
+        const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (link) {
+          link.href = newUrl;
+        } else {
+          const newLink = document.createElement("link");
+          newLink.rel = "icon";
+          newLink.href = newUrl;
+          document.head.appendChild(newLink);
+        }
+      }
+
       fetchBranding();
     } catch {
       toast.error("Failed to save branding settings");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 512KB for a favicon)
+    if (file.size > 512 * 1024) {
+      toast.error("Favicon must be less than 512KB");
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ["image/x-icon", "image/png", "image/svg+xml", "image/gif"];
+    if (!validTypes.includes(file.type) && !file.name.endsWith(".ico") && !file.name.endsWith(".png") && !file.name.endsWith(".svg")) {
+      toast.error("Please upload an .ico, .png, or .svg file");
+      return;
+    }
+
+    setUploadingFavicon(true);
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Upload to Cloudinary via API
+      const result = await api.post<{ url: string }>("/api/upload", {
+        file: base64,
+        folder: "ems/favicons",
+      });
+
+      setForm((prev) => ({ ...prev, faviconUrl: result.url }));
+      toast.success("Favicon uploaded successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload favicon");
+    } finally {
+      setUploadingFavicon(false);
+      // Reset file input
+      if (faviconInputRef.current) {
+        faviconInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeFavicon = () => {
+    setForm((prev) => ({ ...prev, faviconUrl: "" }));
   };
 
   // List update helpers
@@ -280,6 +349,89 @@ export function BrandingPage() {
             >
               <Plus className="h-3 w-3" /> Add Logo URL
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Favicon */}
+      <Card>
+        <CardContent className="p-4 sm:p-6">
+          <h3 className="font-semibold mb-3">Favicon</h3>
+          <div className="flex flex-col sm:flex-row items-start gap-4">
+            <div className="flex-1 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Upload a favicon for the browser tab. Recommended: 32×32px PNG or .ico file (max 512KB).
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  ref={faviconInputRef}
+                  type="file"
+                  accept=".ico,.png,.svg,.gif,image/x-icon,image/png,image/svg+xml"
+                  onChange={handleFaviconUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => faviconInputRef.current?.click()}
+                  disabled={uploadingFavicon}
+                  className="gap-1.5"
+                >
+                  {uploadingFavicon ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  {uploadingFavicon ? "Uploading..." : "Upload Favicon"}
+                </Button>
+                {form.faviconUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeFavicon}
+                    className="gap-1.5 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Favicon Preview */}
+            <div className="flex items-center gap-4 shrink-0">
+              {form.faviconUrl ? (
+                <>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-8 h-8 border rounded bg-muted flex items-center justify-center overflow-hidden">
+                      <img
+                        src={form.faviconUrl}
+                        alt="Favicon 16x16"
+                        className="w-4 h-4 object-contain"
+                      />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">16px</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 border rounded bg-muted flex items-center justify-center overflow-hidden">
+                      <img
+                        src={form.faviconUrl}
+                        alt="Favicon 32x32"
+                        className="w-8 h-8 object-contain"
+                      />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">32px</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+                  <div className="w-12 h-12 border rounded bg-muted flex items-center justify-center">
+                    <ImageOff className="w-5 h-5 text-muted-foreground/50" />
+                  </div>
+                  <span className="text-[10px]">No favicon set</span>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

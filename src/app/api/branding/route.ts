@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
           socialMediaLinks: "{}",
           primaryColor: "#E0197A",
           secondaryColor: "#7B2FBE",
+          faviconUrl: "",
         },
       });
     }
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
       contactEmails: JSON.parse(settings.contactEmails),
       contactPhones: JSON.parse(settings.contactPhones),
       socialMediaLinks: JSON.parse(settings.socialMediaLinks),
+      faviconUrl: settings.faviconUrl || "",
       createdAt: settings.createdAt.toISOString(),
       updatedAt: settings.updatedAt.toISOString(),
     });
@@ -59,6 +61,7 @@ export async function PUT(req: NextRequest) {
       ...(body.socialMediaLinks !== undefined && { socialMediaLinks: typeof body.socialMediaLinks === "string" ? body.socialMediaLinks : JSON.stringify(body.socialMediaLinks) }),
       ...(body.primaryColor !== undefined && { primaryColor: body.primaryColor }),
       ...(body.secondaryColor !== undefined && { secondaryColor: body.secondaryColor }),
+      ...(body.faviconUrl !== undefined && { faviconUrl: body.faviconUrl }),
     };
 
     if (settings) {
@@ -75,6 +78,7 @@ export async function PUT(req: NextRequest) {
           socialMediaLinks: (data.socialMediaLinks as string) || "{}",
           primaryColor: (data.primaryColor as string) || "#E0197A",
           secondaryColor: (data.secondaryColor as string) || "#7B2FBE",
+          faviconUrl: (data.faviconUrl as string) || "",
         },
       });
     }
@@ -86,6 +90,7 @@ export async function PUT(req: NextRequest) {
       contactEmails: JSON.parse(settings.contactEmails),
       contactPhones: JSON.parse(settings.contactPhones),
       socialMediaLinks: JSON.parse(settings.socialMediaLinks),
+      faviconUrl: settings.faviconUrl || "",
       createdAt: settings.createdAt.toISOString(),
       updatedAt: settings.updatedAt.toISOString(),
     });

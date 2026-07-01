@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type { BusinessData } from "@/lib/types";
@@ -12,7 +12,36 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Store, Save, Plus, MapPin, Phone, Tag, FileText, UserCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Store,
+  Save,
+  Plus,
+  MapPin,
+  Phone,
+  Tag,
+  FileText,
+  UserCircle,
+  ClipboardPaste,
+  Upload,
+  Sparkles,
+  FileSpreadsheet,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { EmployeeSearchDropdown } from "@/components/shared/employee-search-dropdown";
 
 // ============ HELPERS ============
@@ -23,6 +52,17 @@ interface BusinessEntry {
   assignedEmployeeId: string;
   assignedDepartment: string;
   savedAt: string;
+}
+
+interface ExtractedData {
+  businessName: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  country: string;
+  contactNumber: string;
+  email: string;
+  website: string;
 }
 
 function parseJsonField(value: string): string {
@@ -80,6 +120,22 @@ const defaultData: BusinessData = {
   updatedAt: "",
 };
 
+const defaultSocialFields = {
+  facebook: "",
+  instagram: "",
+  tiktok: "",
+  pinterest: "",
+  youtube: "",
+  linkedin: "",
+  blog: "",
+};
+
+const defaultWorkFields = {
+  dailyCalls: "",
+  dailyCustomers: "",
+  focusAreas: "",
+};
+
 const STORAGE_KEY = "ems_business_entries";
 
 function loadEntries(): BusinessEntry[] {
@@ -97,6 +153,198 @@ function saveEntries(entries: BusinessEntry[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
+// ============ SMART PASTE EXTRACTION ============
+
+function extractBusinessData(text: string): ExtractedData {
+  const result: ExtractedData = {
+    businessName: "",
+    address: "",
+    city: "",
+    postalCode: "",
+    country: "",
+    contactNumber: "",
+    email: "",
+    website: "",
+  };
+
+  // Extract email
+  const emailMatch = text.match(/[\w.-]+@[\w.-]+\.\w+/);
+  if (emailMatch) {
+    result.email = emailMatch[0];
+  }
+
+  // Extract website
+  const websiteMatch = text.match(/https?:\/\/(www\.)?[\w.-]+\.\w+/);
+  if (websiteMatch) {
+    result.website = websiteMatch[0];
+  }
+
+  // Extract phone - try multiple patterns
+  const phonePatterns = [
+    /\+?\d{1,4}[-.\s]?\(?\d{1,5}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g,
+    /(?:tel|phone|mobile)[:\s]*([+\d][\d\s\-().]{6,})/i,
+  ];
+  for (const pattern of phonePatterns) {
+    const matches = text.match(pattern);
+    if (matches && matches.length > 0) {
+      result.contactNumber = matches[0].trim();
+      break;
+    }
+  }
+
+  // Extract postal code (UK format, US zip, or general)
+  const postalMatch = text.match(/\b([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d{1,2}[A-Z]{1,2}|\d{5}(?:-\d{4})?)\b/);
+  if (postalMatch) {
+    result.postalCode = postalMatch[1];
+  }
+
+  // Extract city (common pattern: "City, State" or a capitalized word near postal code)
+  const lines = text.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+
+  // Business name: first line or text before first comma
+  if (lines.length > 0) {
+    const firstLine = lines[0];
+    // If first line has comma, take the part before it (unless it's a phone or email)
+    const commaIdx = firstLine.indexOf(",");
+    if (commaIdx > 0) {
+      const candidate = firstLine.substring(0, commaIdx).trim();
+      if (!/\d{3,}/.test(candidate) && !candidate.includes("@")) {
+        result.businessName = candidate;
+      } else {
+        result.businessName = firstLine.trim();
+      }
+    } else {
+      result.businessName = firstLine.trim();
+    }
+  }
+
+  // Build address from remaining parts
+  // Remove extracted parts and get address
+  let remaining = text;
+  // Remove business name
+  if (result.businessName) {
+    remaining = remaining.replace(result.businessName, "");
+  }
+  // Remove email
+  if (result.email) {
+    remaining = remaining.replace(result.email, "");
+  }
+  // Remove website
+  if (result.website) {
+    remaining = remaining.replace(result.website, "");
+  }
+  // Remove phone
+  if (result.contactNumber) {
+    remaining = remaining.replace(result.contactNumber, "");
+  }
+  // Remove postal code
+  if (result.postalCode) {
+    remaining = remaining.replace(result.postalCode, "");
+  }
+
+  // Clean remaining and use as address
+  const addressParts = remaining
+    .split(/[,;\n]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 2 && !/^https?:/.test(s) && !s.includes("@"));
+
+  if (addressParts.length > 0) {
+    // First part is likely address, second might be city
+    const streetParts = addressParts.filter((p) => {
+      const lower = p.toLowerCase();
+      return (
+        lower.includes("st") ||
+        lower.includes("street") ||
+        lower.includes("ave") ||
+        lower.includes("avenue") ||
+        lower.includes("road") ||
+        lower.includes("rd") ||
+        lower.includes("blvd") ||
+        lower.includes("drive") ||
+        lower.includes("lane") ||
+        lower.includes("ln") ||
+        lower.includes("way") ||
+        lower.includes("circuit") ||
+        lower.includes("plaza") ||
+        /^\d+/.test(p) // starts with a number (street number)
+      );
+    });
+
+    if (streetParts.length > 0) {
+      result.address = streetParts[0];
+    } else if (addressParts.length > 0) {
+      result.address = addressParts[0];
+    }
+
+    // Try to find city
+    const cityParts = addressParts.filter((p) => p !== result.address);
+    if (cityParts.length > 0) {
+      result.city = cityParts[0];
+    }
+    if (cityParts.length > 1) {
+      result.country = cityParts[cityParts.length - 1];
+    }
+  }
+
+  return result;
+}
+
+// ============ CSV PARSING ============
+
+function parseCSV(text: string): { headers: string[]; rows: string[][] } {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length === 0) return { headers: [], rows: [] };
+
+  // Simple CSV parser
+  const parseLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === "," && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const headers = parseLine(lines[0]);
+  const rows = lines.slice(1).map(parseLine).filter((r) => r.some((c) => c));
+  return { headers, rows };
+}
+
+// Field mapping options
+const FIELD_OPTIONS = [
+  { value: "businessName", label: "Business Name" },
+  { value: "address", label: "Address" },
+  { value: "city", label: "City" },
+  { value: "postalCode", label: "Postal Code" },
+  { value: "country", label: "Country" },
+  { value: "contactNumber", label: "Contact Number" },
+  { value: "email", label: "Email" },
+  { value: "website", label: "Website" },
+  { value: "shortDescription", label: "Short Description" },
+  { value: "longDescription", label: "Long Description" },
+  { value: "openingHours", label: "Opening Hours" },
+  { value: "googleMapLink", label: "Google Map Link" },
+  { value: "gmbProfileLink", label: "GMB Profile Link" },
+  { value: "services", label: "Services" },
+  { value: "targetAreas", label: "Target Areas" },
+  { value: "", label: "— Skip —" },
+];
+
 // ============ COMPONENT ============
 
 export function BusinessDataPage() {
@@ -110,22 +358,25 @@ export function BusinessDataPage() {
   const [assignedDepartment, setAssignedDepartment] = useState("");
 
   // Social media individual fields
-  const [socialFields, setSocialFields] = useState({
-    facebook: "",
-    instagram: "",
-    tiktok: "",
-    pinterest: "",
-    youtube: "",
-    linkedin: "",
-    blog: "",
-  });
+  const [socialFields, setSocialFields] = useState({ ...defaultSocialFields });
 
   // Work targets individual fields
-  const [workFields, setWorkFields] = useState({
-    dailyCalls: "",
-    dailyCustomers: "",
-    focusAreas: "",
-  });
+  const [workFields, setWorkFields] = useState({ ...defaultWorkFields });
+
+  // Smart Paste state
+  const [smartPasteOpen, setSmartPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [extracted, setExtracted] = useState<ExtractedData | null>(null);
+  const [extracting, setExtracting] = useState(false);
+
+  // CSV Import state
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvRows, setCsvRows] = useState<string[][]>([]);
+  const [csvFieldMap, setCsvFieldMap] = useState<Record<string, string>>({});
+  const [importing, setImporting] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize
   const initialize = useCallback(async () => {
@@ -183,13 +434,14 @@ export function BusinessDataPage() {
 
   function resetForm() {
     setData({ ...defaultData });
-    setSocialFields({ facebook: "", instagram: "", tiktok: "", pinterest: "", youtube: "", linkedin: "", blog: "" });
-    setWorkFields({ dailyCalls: "", dailyCustomers: "", focusAreas: "" });
+    setSocialFields({ ...defaultSocialFields });
+    setWorkFields({ ...defaultWorkFields });
     setAssignedEmployeeId("");
     setAssignedDepartment("");
   }
 
-  async function handleSave() {
+  async function handleSave(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     if (!data.businessName.trim()) {
       toast.error("Business name is required");
       return;
@@ -225,7 +477,10 @@ export function BusinessDataPage() {
       setEntries(updatedEntries);
       saveEntries(updatedEntries);
 
-      toast.success("Business data saved");
+      toast.success("Business data saved successfully");
+
+      // Reset form completely after save
+      resetForm();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -244,6 +499,171 @@ export function BusinessDataPage() {
     setEntries(updated);
     saveEntries(updated);
     toast.success("Entry removed from list");
+  }
+
+  // ============ SMART PASTE ============
+
+  function handleExtract() {
+    if (!pasteText.trim()) {
+      toast.error("Please paste some text first");
+      return;
+    }
+    setExtracting(true);
+    // Use setTimeout to not block UI
+    setTimeout(() => {
+      const result = extractBusinessData(pasteText);
+      setExtracted(result);
+      setExtracting(false);
+    }, 300);
+  }
+
+  function applyExtracted() {
+    if (!extracted) return;
+    setData((prev) => ({
+      ...prev,
+      businessName: extracted.businessName || prev.businessName,
+      address: extracted.address || prev.address,
+      city: extracted.city || prev.city,
+      postalCode: extracted.postalCode || prev.postalCode,
+      country: extracted.country || prev.country,
+      contactNumber: extracted.contactNumber || prev.contactNumber,
+      email: extracted.email || prev.email,
+      website: extracted.website || prev.website,
+    }));
+    setSmartPasteOpen(false);
+    setPasteText("");
+    setExtracted(null);
+    toast.success("Data extracted and applied to form");
+  }
+
+  function closeSmartPaste() {
+    setSmartPasteOpen(false);
+    setPasteText("");
+    setExtracted(null);
+  }
+
+  // ============ CSV IMPORT ============
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      toast.info("Excel import requires server-side processing. Please use CSV format for client-side import.");
+      return;
+    }
+
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Please select a .csv or .xlsx file");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (!text) return;
+
+      const { headers, rows } = parseCSV(text);
+      if (headers.length === 0) {
+        toast.error("Could not parse CSV headers");
+        return;
+      }
+
+      setCsvHeaders(headers);
+      setCsvRows(rows);
+
+      // Auto-guess field mappings
+      const map: Record<string, string> = {};
+      const headerLower = headers.map((h) => h.toLowerCase().trim());
+      const guesses: Record<string, string[]> = {
+        businessName: ["name", "business name", "business", "company", "company name", "organization"],
+        address: ["address", "street", "street address", "location"],
+        city: ["city", "town"],
+        postalCode: ["postal code", "postcode", "zip", "zip code", "postal"],
+        country: ["country", "nation"],
+        contactNumber: ["phone", "tel", "telephone", "mobile", "contact number", "contact", "phone number"],
+        email: ["email", "e-mail", "email address", "mail"],
+        website: ["website", "web", "url", "site", "website url"],
+        shortDescription: ["description", "short description", "summary", "about"],
+        longDescription: ["long description", "detailed description", "full description"],
+        openingHours: ["hours", "opening hours", "business hours"],
+        services: ["services", "service"],
+        targetAreas: ["target areas", "areas", "regions"],
+      };
+
+      for (const [field, aliases] of Object.entries(guesses)) {
+        const idx = headerLower.findIndex((h) =>
+          aliases.some((a) => h === a || h.includes(a) || a.includes(h))
+        );
+        if (idx >= 0) {
+          map[headers[idx]] = field;
+        }
+      }
+
+      setCsvFieldMap(map);
+      setCsvImportOpen(true);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImportCSV() {
+    if (csvRows.length === 0) {
+      toast.error("No data rows to import");
+      return;
+    }
+
+    try {
+      setImporting(true);
+      const newEntries: BusinessEntry[] = [];
+
+      for (const row of csvRows) {
+        const entryData: BusinessData = { ...defaultData };
+
+        csvHeaders.forEach((header, idx) => {
+          const field = csvFieldMap[header] as keyof BusinessData;
+          if (field && row[idx] !== undefined) {
+            if (field === "services" || field === "targetAreas" || field === "hashtags" || field === "seoKeywords") {
+              entryData[field] = JSON.stringify(row[idx].split(";").map((s) => s.trim()).filter(Boolean));
+            } else {
+              entryData[field] = row[idx];
+            }
+          }
+        });
+
+        if (!entryData.businessName) continue;
+
+        try {
+          await api.put<BusinessData>("/api/business-data", entryData);
+        } catch {
+          // Continue with next row even if one fails
+        }
+
+        newEntries.push({
+          id: crypto.randomUUID(),
+          data: entryData,
+          assignedEmployeeId: "",
+          assignedDepartment: "",
+          savedAt: new Date().toISOString(),
+        });
+      }
+
+      const updatedEntries = [...newEntries.reverse(), ...entries];
+      setEntries(updatedEntries);
+      saveEntries(updatedEntries);
+
+      toast.success(`Imported ${newEntries.length} business entries`);
+      setCsvImportOpen(false);
+      setCsvHeaders([]);
+      setCsvRows([]);
+      setCsvFieldMap({});
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setImporting(false);
+    }
   }
 
   // ============ RENDER ============
@@ -280,14 +700,29 @@ export function BusinessDataPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleAddNew}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Business Data
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => setSmartPasteOpen(true)}>
+            <Sparkles className="w-4 h-4 mr-2" />
+            Smart Paste
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="w-4 h-4 mr-2" />
+            Import
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button variant="outline" size="sm" onClick={handleAddNew}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add New
+          </Button>
+          <Button size="sm" onClick={() => handleSave()} disabled={saving}>
             <Save className="w-4 h-4 mr-2" />
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
@@ -583,7 +1018,7 @@ export function BusinessDataPage() {
           <Plus className="w-4 h-4 mr-2" />
           Add Business Data
         </Button>
-        <Button onClick={handleSave} disabled={saving} size="lg">
+        <Button onClick={() => handleSave()} disabled={saving} size="lg">
           <Save className="w-4 h-4 mr-2" />
           {saving ? "Saving..." : "Save All Changes"}
         </Button>
@@ -682,6 +1117,205 @@ export function BusinessDataPage() {
           </div>
         </>
       )}
+
+      {/* ============ SMART PASTE DIALOG ============ */}
+      <Dialog open={smartPasteOpen} onOpenChange={(open) => {
+        if (!open) closeSmartPaste();
+        setSmartPasteOpen(open);
+      }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Smart Paste
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Paste business information below and we&apos;ll automatically extract the fields for you.
+              Example: &quot;Mearns Gadget, 123 Main St, Glasgow, G1 1AA, 0141-555-0123, info@mearns.co.uk, www.mearns.co.uk&quot;
+            </p>
+            <Textarea
+              placeholder="Paste business data here... Name, Address, Phone, Email, Website, etc."
+              value={pasteText}
+              onChange={(e) => {
+                setPasteText(e.target.value);
+                setExtracted(null);
+              }}
+              rows={6}
+              className="font-mono text-sm"
+            />
+            <Button onClick={handleExtract} disabled={extracting || !pasteText.trim()} className="w-full sm:w-auto">
+              {extracting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Extracting...
+                </>
+              ) : (
+                <>
+                  <ClipboardPaste className="w-4 h-4 mr-2" />
+                  Extract Data
+                </>
+              )}
+            </Button>
+
+            {/* Extracted Data Preview */}
+            {extracted && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <AlertCircle className="h-4 w-4 text-primary" />
+                  Extracted Data Preview
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    { label: "Business Name", value: extracted.businessName },
+                    { label: "Address", value: extracted.address },
+                    { label: "City", value: extracted.city },
+                    { label: "Postal Code", value: extracted.postalCode },
+                    { label: "Country", value: extracted.country },
+                    { label: "Phone", value: extracted.contactNumber },
+                    { label: "Email", value: extracted.email },
+                    { label: "Website", value: extracted.website },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex flex-col gap-1 p-2 rounded-md bg-muted/50 border">
+                      <span className="text-xs text-muted-foreground">{label}</span>
+                      <span className="text-sm font-medium truncate">
+                        {value || <span className="text-muted-foreground italic">Not found</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeSmartPaste}>
+              Cancel
+            </Button>
+            <Button onClick={applyExtracted} disabled={!extracted}>
+              Apply to Form
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============ CSV IMPORT DIALOG ============ */}
+      <Dialog open={csvImportOpen} onOpenChange={(open) => {
+        if (!open) {
+          setCsvHeaders([]);
+          setCsvRows([]);
+          setCsvFieldMap({});
+        }
+        setCsvImportOpen(open);
+      }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-primary" />
+              Import CSV Data
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{csvRows.length}</span> rows found with{" "}
+              <span className="font-medium text-foreground">{csvHeaders.length}</span> columns.
+              Map each CSV column to a form field below.
+            </div>
+
+            {/* Mapping UI */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span>CSV Column</span>
+                <span>→</span>
+                <span>Form Field</span>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {csvHeaders.map((header, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center p-2 rounded-md bg-muted/30 border">
+                    <span className="text-sm font-medium truncate">{header}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <Select
+                      value={csvFieldMap[header] || ""}
+                      onValueChange={(val) => {
+                        setCsvFieldMap((prev) => ({ ...prev, [header]: val }));
+                      }}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Skip this column" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FIELD_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value || "skip"} value={opt.value || "__skip__"}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview first 3 rows */}
+            {csvRows.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Preview (first 3 rows)
+                </p>
+                <div className="overflow-x-auto border rounded-md">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted/50">
+                        <th className="px-3 py-2 text-left font-semibold">#</th>
+                        {csvHeaders.map((h, i) => (
+                          <th key={i} className="px-3 py-2 text-left font-semibold whitespace-nowrap">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvRows.slice(0, 3).map((row, ri) => (
+                        <tr key={ri} className="border-t">
+                          <td className="px-3 py-2 text-muted-foreground">{ri + 1}</td>
+                          {csvHeaders.map((_, ci) => (
+                            <td key={ci} className="px-3 py-2 whitespace-nowrap max-w-[200px] truncate">
+                              {row[ci] || "—"}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setCsvImportOpen(false);
+              setCsvHeaders([]);
+              setCsvRows([]);
+              setCsvFieldMap({});
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleImportCSV} disabled={importing || csvRows.length === 0}>
+              {importing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import {csvRows.length} Rows
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

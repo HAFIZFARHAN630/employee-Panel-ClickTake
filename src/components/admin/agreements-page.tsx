@@ -430,7 +430,7 @@ export function AgreementsPage() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
                       {AVAILABLE_ROLES.map((role) => (
                         <label
                           key={role}
@@ -464,7 +464,7 @@ export function AgreementsPage() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
                       {departments.length === 0 ? (
                         <p className="text-sm text-muted-foreground px-2 py-1.5">No departments found</p>
                       ) : (

@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Webhook, Plus, Pencil, Trash2, Link2 } from "lucide-react";
+import { Webhook, Plus, Pencil, Trash2, Link2, Info, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 const PROVIDERS = ["slack", "discord", "teams", "google-sheets", "custom"];
@@ -48,6 +48,31 @@ const providerColors: Record<string, string> = {
   custom: "bg-muted text-muted-foreground",
 };
 
+const SETUP_INSTRUCTIONS: Record<string, string> = {
+  slack: `1. Go to https://api.slack.com/apps and create a new app
+2. Navigate to "Incoming Webhooks" in the left sidebar
+3. Click "Add New Webhook to Workspace"
+4. Select the channel and copy the Webhook URL
+5. Paste the URL in the Webhook URL field above`,
+  teams: `1. Go to https://teams.microsoft.com and open the target channel
+2. Click the "..." menu > "Connectors"
+3. Search for "Incoming Webhook" and add it
+4. Name it "EMS Notifications" and copy the generated URL
+5. Paste the URL in the Webhook URL field above`,
+  discord: `1. Open your Discord server settings
+2. Navigate to "Integrations" > "Webhooks"
+3. Click "New Webhook"
+4. Select the target channel and copy the Webhook URL
+5. Paste the URL in the Webhook URL field above`,
+  "google-sheets": `1. Open your Google Sheet and go to Extensions > Apps Script
+2. Write a doPost(e) function to receive webhook data
+3. Deploy as a web app and copy the deployment URL
+4. Paste the URL in the Webhook URL field above`,
+  custom: `1. Your webhook endpoint should accept POST requests with JSON body
+2. The payload format is: { "text": "message", "timestamp": "ISO date", "source": "employee-panel" }
+3. Make sure your endpoint returns 200 OK on success`,
+};
+
 export function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +81,13 @@ export function IntegrationsPage() {
   const [editing, setEditing] = useState<Integration | null>(null);
   const [deleting, setDeleting] = useState<Integration | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Info modal state
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoProvider, setInfoProvider] = useState("slack");
+
+  // Test webhook state
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const [formName, setFormName] = useState("");
   const [formProvider, setFormProvider] = useState("slack");
@@ -107,6 +139,11 @@ export function IntegrationsPage() {
     setFormEvents(integ.events.replace(/^\[|\]$/g, "").replace(/"/g, ""));
     setFormActive(integ.isActive);
     setDialogOpen(true);
+  }
+
+  function openInfoModal(provider: string) {
+    setInfoProvider(provider);
+    setInfoOpen(true);
   }
 
   async function handleSave() {
@@ -166,6 +203,29 @@ export function IntegrationsPage() {
     }
   }
 
+  async function handleTestWebhook(integ: Integration) {
+    if (!integ.webhookUrl) {
+      toast.error("No webhook URL configured for this integration");
+      return;
+    }
+    setTestingId(integ.id);
+    try {
+      const result = await api.post<{ success: boolean; statusCode?: number; error?: string }>(
+        "/api/integrations/test-webhook",
+        { webhookUrl: integ.webhookUrl, provider: integ.provider }
+      );
+      if (result.success && result.statusCode) {
+        toast.success(`Connection successful! (Status ${result.statusCode})`);
+      } else {
+        toast.error(`Connection failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      toast.error(`Connection failed: ${err instanceof Error ? err.message : "Request error"}`);
+    } finally {
+      setTestingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -211,7 +271,16 @@ export function IntegrationsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="text-base">{integ.name}</CardTitle>
+                    <CardTitle className="text-base flex items-center gap-1.5">
+                      {integ.name}
+                      <button
+                        onClick={() => openInfoModal(integ.provider)}
+                        className="inline-flex text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        aria-label={`Setup instructions for ${integ.provider}`}
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </CardTitle>
                     <div className="flex gap-1.5">
                       <Badge
                         variant="secondary"
@@ -247,6 +316,20 @@ export function IntegrationsPage() {
                   Created {format(new Date(integ.createdAt), "MMM d, yyyy")}
                 </p>
                 <div className="flex gap-1">
+                  {integ.webhookUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => handleTestWebhook(integ)}
+                      disabled={testingId === integ.id}
+                    >
+                      {testingId === integ.id ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : null}
+                      Test
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -292,7 +375,16 @@ export function IntegrationsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Provider</Label>
+              <div className="flex items-center gap-1.5">
+                <Label>Provider</Label>
+                <button
+                  onClick={() => openInfoModal(formProvider)}
+                  className="inline-flex text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  aria-label="View setup instructions"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+              </div>
               <Select value={formProvider} onValueChange={setFormProvider}>
                 <SelectTrigger>
                   <SelectValue />
@@ -376,6 +468,30 @@ export function IntegrationsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Setup Info Modal */}
+      <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="w-4 h-4" />
+              Setup Guide —{" "}
+              {infoProvider.charAt(0).toUpperCase() +
+                infoProvider.slice(1).replace("-", " ")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <div className="bg-muted rounded-lg p-4 text-sm leading-relaxed whitespace-pre-line font-mono">
+              {SETUP_INSTRUCTIONS[infoProvider] || SETUP_INSTRUCTIONS.custom}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInfoOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -669,3 +669,122 @@ Stage Summary:
 - Firebase: ⏳ Build ready in out/ folder, user must run `firebase deploy --only hosting` locally
 - Firebase CLI token not available in sandbox environment
 - User instructions provided for final Firebase deploy step
+
+---
+Task ID: BACKEND-FIXES
+Agent: Backend Fix Agent
+Task: Fix 6 backend API routes for the zero-bug final patch
+
+Work Log:
+- Fixed auth-middleware to return 403 for disabled users (was returning 401)
+- Replaced dummy AI task generation with real AI (OpenAI/Google) with fallback
+- Enhanced chat channels POST with project auto-add and member selection
+- Created test-webhook endpoint for integrations
+- Updated verification action to properly transition onboardingStatus
+- Added auto-stop for dead time sessions (>24h)
+
+Stage Summary:
+- All 6 backend fixes applied
+- AI generation uses real configured models with template fallback
+- Chat channels properly handle project and group member management
+
+---
+Task ID: CHAT-BUSINESS-FIXES
+Agent: Chat & Business Fix Agent
+Task: Fix chat system, business data page, and notifications
+
+Work Log:
+- Fixed admin chat page with 4 channel types (team, project, group, direct)
+- Added project dropdown with auto-add note when type === "project"
+- Added searchable checkbox list for group/team member selection
+- Added searchable single-user selection for direct messages
+- Passes `memberIds` array in POST body when creating channels
+- Fixed employee chat page with Team tab, group chat creation, and DM support
+- Added Smart Paste dialog with regex extraction for business data (name, phone, email, website, address, city, postal code, country)
+- Added data preview before applying extracted data to form
+- Fixed form reset: `resetForm()` called after successful save, all state variables cleared
+- Added CSV import with file picker, column mapping UI, auto-guess mapping, and row preview
+- Excel import shows info message about server-side processing requirement
+- Replaced notifications page user Select dropdown with EmployeeSearchDropdown component
+- Removed unused `users` state and `fetchUsers` from notifications page
+
+Stage Summary:
+- Chat supports 4 channel types with proper member management (admin) and group/DM creation (employee)
+- Business data supports smart paste with regex extraction and CSV import with column mapping
+- Notifications use proper employee search dropdown with search functionality
+- Form completely resets after successful save
+
+---
+Task ID: NEW-FEATURES
+Agent: New Features Agent
+Task: Create HR Bot Widget, fix Integrations page, add Favicon upload
+
+Work Log:
+- Created floating HR Bot Widget with chat interface (src/components/shared/hr-bot-widget.tsx)
+  - FAB button with gradient background, fixed bottom-right
+  - Chat window (320px/340px wide) with header, scrollable messages, input area
+  - Queries /api/hr-chat endpoint for AI/knowledge-base responses
+  - Typing indicator with animated bouncing dots
+  - Toggleable via localStorage key `hr_bot_enabled`
+  - Smooth open/close animation (scale + opacity)
+  - Mobile responsive
+- Integrated HRBotWidget into layout.tsx (after Toaster)
+- Updated Integrations page (src/components/admin/integrations-page.tsx)
+  - Added Info icon next to provider name and card title that opens setup guide Dialog
+  - Setup instructions for Slack, Teams, Discord, Google Sheets, and Custom providers
+  - Added "Test" button on each integration card (calls /api/integrations/test-webhook)
+  - Loading spinner on test button while testing, toast notifications for success/failure
+  - Toggle switch was already present on cards
+- Added favicon support to Branding
+  - Added faviconUrl column to Prisma schema and SQLite database
+  - Updated BrandingSettings type with faviconUrl field
+  - Updated /api/branding GET/PUT to include faviconUrl
+  - Created /api/upload endpoint for Cloudinary file uploads
+  - Updated Branding page with Favicon section:
+    - File upload with validation (type, size)
+    - Live preview at 16px and 32px sizes
+    - Remove button to clear favicon
+    - On save, dynamically updates browser favicon via DOM manipulation
+
+Stage Summary:
+- HR Bot Widget is globally available (toggled via localStorage key `hr_bot_enabled`)
+- Integrations page now has Info modals with setup guides and Test button per integration
+- Branding page supports favicon upload with live browser update and 16px/32px preview
+
+---
+Task ID: FRONTEND-FIXES
+Agent: Frontend Fix Agent
+Task: Fix 4 critical frontend components
+
+Work Log:
+- Fixed KYC verification state machine to prevent infinite loop
+  - Added `onboardingStatus` field to User type in types.ts
+  - Rewrote kyc-verification-popup.tsx with proper state machine (PopupState: upload | verifying | uploading | success | error)
+  - Logic now checks onboardingStatus: pending/reverification_required → upload UI; face_pending → read-only verifying; others → no popup
+  - Added camera recording with 15-second auto-stop countdown using MediaRecorder API
+  - Added file upload fallback with video validation
+  - Added warning text: "Ensure face is visible, no masks, no dark rooms"
+  - Added upload progress indicator with simulated progress bar
+- Added user management filters (role, status, department) and PATCH handler
+  - Added Department filter dropdown (populated from user data) to filter bar
+  - Added Role filter with additional options (freelancer, viewer)
+  - Added per-row status change dropdown (Active, Disabled, Fired, Left) via DropdownMenu
+  - Status badges: green for Active, red for Disabled, amber for Left
+  - Disabled/fired users shown with reduced opacity
+  - Created PATCH /api/users/[id] handler supporting isActive, onboardingStatus, role, and department updates
+  - Updated GET /api/users to support status and department query filters
+  - Updated GET /api/users/[id] to include onboardingStatus in response
+- Added expired/days-left badges to announcements
+  - Red "Expired" badge with AlertCircle icon when expiresAt is in the past
+  - Green "X Days Left" badge with CalendarClock icon for active expirations
+  - Blue "No Expiry" badge for announcements without expiresAt
+- Fixed agreements dropdown CSS for scrollable lists
+  - Changed multi-select dropdown containers from max-h-48 to max-h-[200px] overflow-y-auto
+  - Applied to both Roles and Departments popover dropdowns
+
+Stage Summary:
+- KYC popup now respects onboardingStatus properly, no infinite loop
+- Users page has full filter bar (type, role, status, department) and inline status management
+- Users API PATCH handler supports isActive, onboardingStatus, role, department updates
+- Announcements show expiration status badges (Expired, X Days Left, No Expiry)
+- Agreement dropdowns scroll properly at max-height 200px

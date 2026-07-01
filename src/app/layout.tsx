@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/lib/theme-context";
 import { Toaster } from "@/components/ui/sonner";
+import { HRBotWidget } from "@/components/shared/hr-bot-widget";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,6 +44,7 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <Toaster />
+          <HRBotWidget />
         </ThemeProvider>
       </body>
     </html>

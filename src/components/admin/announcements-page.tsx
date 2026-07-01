@@ -52,6 +52,8 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  AlertCircle,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -322,6 +324,25 @@ export function AnnouncementsPage() {
                               >
                                 {statusConf.label}
                               </Badge>
+                              {/* Expiration Badge */}
+                              {a.expiresAt ? (
+                                Date.now() > new Date(a.expiresAt).getTime() ? (
+                                  <Badge className="text-[11px] bg-red-100 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800 flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Expired
+                                  </Badge>
+                                ) : (
+                                  <Badge className="text-[11px] bg-green-100 text-green-700 border-green-200 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 flex items-center gap-1">
+                                    <CalendarClock className="h-3 w-3" />
+                                    {Math.ceil((new Date(a.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} Days Left
+                                  </Badge>
+                                )
+                              ) : (
+                                <Badge variant="outline" className="text-[11px] text-sky-600 border-sky-200 dark:text-sky-400 dark:border-sky-800 flex items-center gap-1">
+                                  <CalendarClock className="h-3 w-3" />
+                                  No Expiry
+                                </Badge>
+                              )}
                               {a.createdBy && (
                                 <span className="text-xs text-muted-foreground">
                                   by {a.createdBy.fullName}
@@ -330,7 +351,7 @@ export function AnnouncementsPage() {
                               {a.expiresAt && (
                                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <Clock className="h-3 w-3" />
-                                  Expires: {new Date(a.expiresAt).toLocaleDateString()}
+                                  {new Date(a.expiresAt).toLocaleDateString()}
                                 </span>
                               )}
                             </div>

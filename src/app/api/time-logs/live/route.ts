@@ -16,6 +16,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
+    const now = new Date();
+
+    // Auto-stop dead sessions (> 24 hours with no end_time)
+    const deadThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    await db.timeLog.updateMany({
+      where: {
+        endTime: null,
+        startTime: { lt: deadThreshold },
+      },
+      data: {
+        endTime: deadThreshold,
+        duration: 24,
+        isVerified: false,
+        verificationMethod: "auto-stopped (24h dead session)",
+      },
+    });
+
     // Find active (no end_time) time logs
     const activeLogs = await db.timeLog.findMany({
       where: {
@@ -33,7 +50,6 @@ export async function GET(req: NextRequest) {
     });
 
     // Calculate duration from startTime
-    const now = new Date();
     const enriched = activeLogs.map(log => ({
       ...log,
       startTime: log.startTime.toISOString(),

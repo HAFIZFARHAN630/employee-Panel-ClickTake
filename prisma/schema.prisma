@@ -465,6 +465,7 @@ model BrandingSettings {
   socialMediaLinks  String   @default("{}") @map("social_media_links")
   primaryColor      String   @default("#E0197A") @map("primary_color")
   secondaryColor    String   @default("#7B2FBE") @map("secondary_color")
+  faviconUrl        String   @default("") @map("favicon_url")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

@@ -73,6 +73,30 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Handle member selection and project auto-add
+    const memberIds: string[] = body.memberIds || [];
+
+    if (type === "project" && projectId) {
+      // Auto-add all employees assigned to this project
+      const assignments = await db.employeeProject.findMany({
+        where: { projectId },
+        include: { employee: { include: { user: true } } },
+      });
+      for (const a of assignments) {
+        if (a.employee.user?.id && !memberIds.includes(a.employee.user.id) && a.employee.user.id !== auth.userId) {
+          memberIds.push(a.employee.user.id);
+        }
+      }
+    }
+
+    // Add all members (deduplicated, skip creator since already added)
+    const allMemberIds = [...new Set(memberIds.filter(id => id !== auth.userId))];
+    for (const uid of allMemberIds) {
+      await db.chatMember.create({
+        data: { channelId: channel.id, userId: uid, role: "member" },
+      });
+    }
+
     return NextResponse.json({
       id: channel.id,
       name: channel.name,

@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
     const search = params.search || "";
     const type = params.type || "";
     const role = params.role || "";
+    const status = params.status || "";
+    const department = params.department || "";
 
     const where: Record<string, unknown> = {};
 
@@ -29,6 +31,16 @@ export async function GET(req: NextRequest) {
       where.role = role;
     }
 
+    if (status === "active") {
+      where.isActive = true;
+    } else if (status === "inactive") {
+      where.isActive = false;
+    }
+
+    if (department) {
+      where.employee = { department };
+    }
+
     const users = await db.user.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -41,6 +53,7 @@ export async function GET(req: NextRequest) {
         isActive: true,
         isSuperuser: true,
         avatarUrl: true,
+        onboardingStatus: true,
         createdAt: true,
         updatedAt: true,
         employee: { select: { id: true, department: true, designation: true } },

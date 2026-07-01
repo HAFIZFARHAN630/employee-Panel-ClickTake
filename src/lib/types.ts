@@ -11,6 +11,7 @@ export interface User {
   isActive: boolean;
   isSuperuser: boolean;
   isFaceVerified: boolean;
+  onboardingStatus: string;
   avatarUrl: string | null;
   requestedRole: string | null;
   tenantId: string | null;
@@ -288,6 +289,7 @@ export interface BrandingSettings {
   socialMediaLinks: string | Record<string, string>;
   primaryColor: string;
   secondaryColor: string;
+  faviconUrl: string;
   createdAt: string;
   updatedAt: string;
 }
