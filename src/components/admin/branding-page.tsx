@@ -25,10 +25,6 @@ function parseJsonString<T>(str: string | unknown): T[] {
   }
 }
 
-function toJsonString(arr: string[]): string {
-  return JSON.stringify(arr);
-}
-
 function parseJsonObject<T extends Record<string, string>>(str: string | unknown): T {
   if (!str) return {} as T;
   if (typeof str === "object" && str !== null && !Array.isArray(str)) return str as T;
@@ -37,10 +33,6 @@ function parseJsonObject<T extends Record<string, string>>(str: string | unknown
   } catch {
     return {} as T;
   }
-}
-
-function toJsonObject(obj: Record<string, string>): string {
-  return JSON.stringify(obj);
 }
 
 // ============ FORM STATE ============
@@ -79,7 +71,9 @@ export function BrandingPage() {
   const [brandingId, setBrandingId] = useState<string>("");
   const [form, setForm] = useState<BrandingFormState>(defaultForm);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadingLogoIdx, setUploadingLogoIdx] = useState<number | null>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBranding = useCallback(async () => {
     try {
@@ -121,11 +115,11 @@ export function BrandingPage() {
       const payload = {
         companyName: form.companyName.trim(),
         tagline: form.tagline.trim(),
-        logoUrls: toJsonString(form.logoUrls.filter((u) => u.trim())),
-        officeLocations: toJsonString(form.officeLocations.filter((l) => l.address.trim())),
-        contactEmails: toJsonString(form.contactEmails.filter((e) => e.trim())),
-        contactPhones: toJsonString(form.contactPhones.filter((p) => p.trim())),
-        socialMediaLinks: toJsonObject(form.socialMedia),
+        logoUrls: form.logoUrls.filter((u) => u.trim()),
+        officeLocations: form.officeLocations.filter((l) => l.address.trim()),
+        contactEmails: form.contactEmails.filter((e) => e.trim()),
+        contactPhones: form.contactPhones.filter((p) => p.trim()),
+        socialMediaLinks: form.socialMedia,
         primaryColor: form.primaryColor,
         secondaryColor: form.secondaryColor,
         faviconUrl: form.faviconUrl.trim(),
@@ -158,17 +152,26 @@ export function BrandingPage() {
     }
   };
 
+  // ============ FILE UPLOAD HELPERS ============
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (max 512KB for a favicon)
     if (file.size > 512 * 1024) {
       toast.error("Favicon must be less than 512KB");
       return;
     }
 
-    // Validate file type
     const validTypes = ["image/x-icon", "image/png", "image/svg+xml", "image/gif"];
     if (!validTypes.includes(file.type) && !file.name.endsWith(".ico") && !file.name.endsWith(".png") && !file.name.endsWith(".svg")) {
       toast.error("Please upload an .ico, .png, or .svg file");
@@ -177,31 +180,59 @@ export function BrandingPage() {
 
     setUploadingFavicon(true);
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // Upload to Cloudinary via API
+      const base64 = await fileToBase64(file);
       const result = await api.post<{ url: string }>("/api/upload", {
         file: base64,
         folder: "ems/favicons",
       });
-
       setForm((prev) => ({ ...prev, faviconUrl: result.url }));
       toast.success("Favicon uploaded successfully");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to upload favicon");
     } finally {
       setUploadingFavicon(false);
-      // Reset file input
-      if (faviconInputRef.current) {
-        faviconInputRef.current.value = "";
-      }
+      if (faviconInputRef.current) faviconInputRef.current.value = "";
     }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo must be less than 2MB");
+      return;
+    }
+
+    const validTypes = ["image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload a PNG, JPG, SVG, or WebP image");
+      return;
+    }
+
+    setUploadingLogoIdx(-1); // -1 means uploading for "add new"
+    try {
+      const base64 = await fileToBase64(file);
+      const result = await api.post<{ url: string }>("/api/upload", {
+        file: base64,
+        folder: "ems/logos",
+      });
+      // Add as a new logo URL
+      setForm((prev) => ({
+        ...prev,
+        logoUrls: [...prev.logoUrls, result.url],
+      }));
+      toast.success("Logo uploaded successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload logo");
+    } finally {
+      setUploadingLogoIdx(null);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
+  const handleLogoUrlAdd = () => {
+    setForm((prev) => ({ ...prev, logoUrls: [...prev.logoUrls, ""] }));
   };
 
   const removeFavicon = () => {
@@ -320,9 +351,24 @@ export function BrandingPage() {
       <Card>
         <CardContent className="p-4 sm:p-6">
           <h3 className="font-semibold mb-3">Logo URLs</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            Add logo URLs manually or upload image files directly.
+          </p>
           <div className="space-y-2">
             {form.logoUrls.map((url, idx) => (
               <div key={idx} className="flex items-center gap-2">
+                {url && (
+                  <div className="w-8 h-8 rounded border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                    <img
+                      src={url}
+                      alt={`Logo ${idx + 1}`}
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
                 <Input
                   value={url}
                   onChange={(e) => updateListItem("logoUrls", idx, e.target.value)}
@@ -341,10 +387,33 @@ export function BrandingPage() {
                 )}
               </div>
             ))}
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+              onChange={handleLogoUpload}
+              className="hidden"
+            />
             <Button
               variant="outline"
               size="sm"
-              onClick={() => addListItem("logoUrls")}
+              onClick={() => logoInputRef.current?.click()}
+              disabled={uploadingLogoIdx !== null}
+              className="gap-1.5"
+            >
+              {uploadingLogoIdx !== null ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="h-3.5 w-3.5" />
+              )}
+              {uploadingLogoIdx !== null ? "Uploading..." : "Upload Logo File"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogoUrlAdd}
               className="gap-1"
             >
               <Plus className="h-3 w-3" /> Add Logo URL
@@ -357,12 +426,30 @@ export function BrandingPage() {
       <Card>
         <CardContent className="p-4 sm:p-6">
           <h3 className="font-semibold mb-3">Favicon</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            Upload a favicon file or paste a URL. Recommended: 32x32px PNG or .ico file (max 512KB).
+          </p>
           <div className="flex flex-col sm:flex-row items-start gap-4">
             <div className="flex-1 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Upload a favicon for the browser tab. Recommended: 32×32px PNG or .ico file (max 512KB).
-              </p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={form.faviconUrl}
+                  onChange={(e) => setForm((prev) => ({ ...prev, faviconUrl: e.target.value }))}
+                  placeholder="https://example.com/favicon.ico"
+                  className="flex-1"
+                />
+                {form.faviconUrl && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={removeFavicon}
+                    aria-label="Remove favicon"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
                 <input
                   ref={faviconInputRef}
                   type="file"
@@ -382,19 +469,8 @@ export function BrandingPage() {
                   ) : (
                     <Upload className="h-3.5 w-3.5" />
                   )}
-                  {uploadingFavicon ? "Uploading..." : "Upload Favicon"}
+                  {uploadingFavicon ? "Uploading..." : "Upload Favicon File"}
                 </Button>
-                {form.faviconUrl && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={removeFavicon}
-                    className="gap-1.5 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Remove
-                  </Button>
-                )}
               </div>
             </div>
 

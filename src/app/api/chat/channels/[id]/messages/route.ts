@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate } from "@/lib/auth-middleware";
+import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
 export async function GET(
   req: NextRequest,
@@ -11,6 +11,15 @@ export async function GET(
     if (auth instanceof NextResponse) return auth;
 
     const { id } = await params;
+
+    // Check membership: only members or admins can access
+    const member = await db.chatMember.findUnique({
+      where: { channelId_userId: { channelId: id, userId: auth.userId } },
+    });
+
+    if (!member && !isAdmin(auth)) {
+      return NextResponse.json({ message: "Forbidden: not a channel member" }, { status: 403 });
+    }
 
     const messages = await db.chatMessage.findMany({
       where: { channelId: id },
@@ -66,6 +75,15 @@ export async function POST(
         { message: "Message content is required" },
         { status: 400 }
       );
+    }
+
+    // Check membership: only members or admins can post
+    const member = await db.chatMember.findUnique({
+      where: { channelId_userId: { channelId: id, userId: auth.userId } },
+    });
+
+    if (!member && !isAdmin(auth)) {
+      return NextResponse.json({ message: "Forbidden: not a channel member" }, { status: 403 });
     }
 
     const message = await db.chatMessage.create({

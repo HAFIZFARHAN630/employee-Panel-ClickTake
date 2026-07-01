@@ -11,11 +11,21 @@ export async function GET(req: NextRequest) {
     const employeeId = params.employeeId || "";
     const from = params.from || "";
     const to = params.to || "";
+    const all = params.all === "true";
+    const active = params.active === "true";
 
     const where: Record<string, unknown> = {};
 
-    if (employeeId) {
-      where.employeeId = employeeId;
+    // Admin can see all users' logs with ?all=true
+    if (!all || !isAdmin(auth)) {
+      // Find employee for this user
+      const employee = await db.employee.findUnique({ where: { userId: auth.userId } });
+      if (employee) where.employeeId = employee.id;
+      else if (employeeId) where.employeeId = employeeId;
+    }
+
+    if (active) {
+      where.endTime = null;
     }
 
     if (from || to) {

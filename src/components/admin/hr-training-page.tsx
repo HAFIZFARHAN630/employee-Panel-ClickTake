@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, GraduationCap, Search, Bot, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, GraduationCap, Search, Bot, Info, FlaskConical, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 // ============ HELPERS ============
@@ -64,6 +64,12 @@ function getCategoryBadge(category: string) {
   );
 }
 
+function getConfidenceBadge(confidence: number) {
+  if (confidence >= 80) return <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />{confidence}%</Badge>;
+  if (confidence >= 50) return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">~{confidence}%</Badge>;
+  return <Badge className="bg-red-100 text-red-700 border-red-200"><XCircle className="w-3 h-3 mr-1" />{confidence}%</Badge>;
+}
+
 // ============ FORM TYPES ============
 
 interface HRTrainingFormData {
@@ -78,6 +84,15 @@ const emptyForm: HRTrainingFormData = {
   category: "policy",
 };
 
+// ============ TEST RESULT TYPE ============
+
+interface TestResult {
+  recordId: string;
+  answer: string;
+  source: string;
+  confidence: number;
+}
+
 // ============ COMPONENT ============
 
 export function HRTrainingPage() {
@@ -90,6 +105,10 @@ export function HRTrainingPage() {
   const [form, setForm] = useState<HRTrainingFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+
+  // Test state
+  const [testResults, setTestResults] = useState<Map<string, TestResult>>(new Map());
+  const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
 
   const fetchRecords = useCallback(async () => {
     try {
@@ -170,6 +189,39 @@ export function HRTrainingPage() {
     }
   };
 
+  const handleTest = async (record: HRTrainingData) => {
+    setTestingIds((prev) => new Set(prev).add(record.id));
+    try {
+      const result = await api.post<{ answer: string; source: string; confidence: number }>("/api/hr-chat", {
+        question: record.question,
+      });
+      setTestResults((prev) => {
+        const next = new Map(prev);
+        next.set(record.id, {
+          recordId: record.id,
+          answer: result.answer,
+          source: result.source,
+          confidence: result.confidence || 0,
+        });
+        return next;
+      });
+    } catch {
+      toast.error("Test failed");
+    } finally {
+      setTestingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(record.id);
+        return next;
+      });
+    }
+  };
+
+  const handleTestAll = async () => {
+    for (const record of filteredRecords) {
+      await handleTest(record);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -185,10 +237,16 @@ export function HRTrainingPage() {
             </p>
           </div>
         </div>
-        <Button onClick={handleCreate} className="gap-2 w-fit">
-          <Plus className="h-4 w-4" />
-          Add Entry
-        </Button>
+        <div className="flex gap-2 w-fit">
+          <Button variant="outline" onClick={handleTestAll} disabled={loading || filteredRecords.length === 0}>
+            <FlaskConical className="h-4 w-4 mr-2" />
+            Test All
+          </Button>
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Entry
+          </Button>
+        </div>
       </div>
 
       {/* Explanation Section */}
@@ -248,47 +306,78 @@ export function HRTrainingPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[40%]">Question</TableHead>
-                    <TableHead className="hidden sm:table-cell">Answer</TableHead>
+                    <TableHead className="w-[30%]">Question</TableHead>
+                    <TableHead className="hidden lg:table-cell">Answer</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Test</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">{record.question}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <p className="line-clamp-2 text-sm text-muted-foreground max-w-xs">
-                          {record.answer}
-                        </p>
-                      </TableCell>
-                      <TableCell>{getCategoryBadge(record.category)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(record)}
-                            aria-label="Edit entry"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setDeletingRecord(record);
-                              setDeleteDialogOpen(true);
-                            }}
-                            aria-label="Delete entry"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredRecords.map((record) => {
+                    const testResult = testResults.get(record.id);
+                    const isTesting = testingIds.has(record.id);
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">{record.question}</TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <p className="line-clamp-2 text-sm text-muted-foreground max-w-xs">
+                            {record.answer}
+                          </p>
+                        </TableCell>
+                        <TableCell>{getCategoryBadge(record.category)}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs gap-1 w-fit"
+                              onClick={() => handleTest(record)}
+                              disabled={isTesting}
+                            >
+                              {isTesting ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              ) : (
+                                <FlaskConical className="h-3 w-3" />
+                              )}
+                              Test
+                            </Button>
+                            {testResult && (
+                              <div className="space-y-0.5">
+                                {getConfidenceBadge(testResult.confidence)}
+                                <p className="text-[10px] text-muted-foreground max-w-[150px] line-clamp-1">
+                                  {testResult.answer}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(record)}
+                              aria-label="Edit entry"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setDeletingRecord(record);
+                                setDeleteDialogOpen(true);
+                              }}
+                              aria-label="Delete entry"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </ScrollArea>

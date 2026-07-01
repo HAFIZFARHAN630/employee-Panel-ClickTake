@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -319,6 +319,22 @@ model SessionSettings {
   @@map("session_settings")
 }
 
+// ============ GENERAL SETTINGS ============
+model GeneralSettings {
+  id              String   @id @default(uuid())
+  companyName     String   @default("")
+  timezone        String   @default("UTC")
+  dateFormat      String   @default("YYYY-MM-DD")
+  emailNotifs     Boolean  @default(true) @map("email_notifs")
+  pushNotifs      Boolean  @default(true) @map("push_notifs")
+  inAppNotifs     Boolean  @default(true) @map("in_app_notifs")
+  hrBotEnabled    Boolean  @default(true) @map("hr_bot_enabled")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("general_settings")
+}
+
 // ============ SIGNUP POLICY ============
 model SignupPolicy {
   id          String   @id @default(uuid())
@@ -602,10 +618,12 @@ model BusinessData {
   shortDescription String  @default("") @map("short_description")
   longDescription  String  @default("") @map("long_description")
   workTargets     String   @default("{}") @map("work_targets")
-  hashtags        String   @default("[]")
-  seoKeywords     String   @default("[]") @map("seo_keywords")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  hashtags            String   @default("[]")
+  seoKeywords         String   @default("[]") @map("seo_keywords")
+  assignedTo          String?  @map("assigned_to")
+  assignedDepartment  String?  @map("assigned_department")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("business_data")
 }

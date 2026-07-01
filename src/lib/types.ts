@@ -187,9 +187,32 @@ export interface SessionSettings {
   id: string;
   timeTrackingTimeoutMinutes: number;
   timeTrackingWarningMinutes: number;
+  activityCheckIntervalMinutes: number;
+  popupCountdownSeconds: number;
   officeLat: number;
   officeLng: number;
   allowedRadiusMeters: number;
+  // General settings (from GeneralSettings table)
+  companyName?: string;
+  timezone?: string;
+  dateFormat?: string;
+  emailNotifs?: boolean;
+  pushNotifs?: boolean;
+  inAppNotifs?: boolean;
+  hrBotEnabled?: boolean;
+}
+
+export interface GeneralSettings {
+  id: string;
+  companyName: string;
+  timezone: string;
+  dateFormat: string;
+  emailNotifs: boolean;
+  pushNotifs: boolean;
+  inAppNotifs: boolean;
+  hrBotEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ActivityLog {
@@ -316,13 +339,15 @@ export interface HRTrainingData {
 
 export interface Department { id: string; name: string; description: string; isActive: boolean; employeeCount?: number; createdAt: string; }
 
-export interface ChatChannel { id: string; name: string; type: string; projectId: string | null; createdAt: string; lastMessage?: string; }
+export interface ChatChannelMember { id: string; fullName: string; avatarUrl?: string; role: string; }
+
+export interface ChatChannel { id: string; name: string; type: string; projectId: string | null; createdAt: string; lastMessage?: string; memberCount?: number; messageCount?: number; members?: ChatChannelMember[]; }
 
 export interface ChatMessage { id: string; channelId: string; senderId: string; content: string; senderName?: string; createdAt: string; }
 
 export interface Integration { id: string; name: string; provider: string; type: string; webhookUrl: string; isActive: boolean; events: string; createdAt: string; }
 
-export interface BusinessData { id: string; businessName: string; address: string; city: string; postalCode: string; country: string; contactNumber: string; email: string; website: string; googleMapLink: string; gmbProfileLink: string; openingHours: string; socialMedia: string; services: string; targetAreas: string; shortDescription: string; longDescription: string; workTargets: string; hashtags: string; seoKeywords: string; createdAt: string; updatedAt: string; }
+export interface BusinessData { id: string; businessName: string; address: string; city: string; postalCode: string; country: string; contactNumber: string; email: string; website: string; googleMapLink: string; gmbProfileLink: string; openingHours: string; socialMedia: string; services: string; targetAreas: string; shortDescription: string; longDescription: string; workTargets: string; hashtags: string; seoKeywords: string; assignedTo?: string; assignedDepartment?: string; createdAt: string; updatedAt: string; }
 
 // ============ DASHBOARD STATS ============
 

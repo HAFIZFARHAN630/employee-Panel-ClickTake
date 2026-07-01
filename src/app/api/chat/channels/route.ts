@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate } from "@/lib/auth-middleware";
+import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
 
+    // Non-admin users only see channels they are a member of
+    const where = isAdmin(auth)
+      ? {}
+      : { members: { some: { userId: auth.userId } } };
+
     const channels = await db.chatChannel.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: {
-        _count: { select: { messages: true } },
+        _count: { select: { messages: true, members: true } },
+        members: {
+          include: {
+            user: { select: { id: true, fullName: true, avatarUrl: true } },
+          },
+        },
       },
     });
 
@@ -36,6 +47,14 @@ export async function GET(req: NextRequest) {
         projectId: c.projectId,
         createdAt: c.createdAt.toISOString(),
         lastMessage: lastMsgMap.get(c.id) || null,
+        memberCount: c._count.members,
+        messageCount: c._count.messages,
+        members: c.members.map((m) => ({
+          id: m.user.id,
+          fullName: m.user.fullName,
+          avatarUrl: m.user.avatarUrl,
+          role: m.role,
+        })),
       }))
     );
   } catch (error) {

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import type { ChatChannel, ChatMessage, User, Project } from "@/lib/types";
+import type { ChatChannel, ChatChannelMember, ChatMessage, User, Project } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   MessageSquare,
   Plus,
@@ -38,6 +38,7 @@ import {
   Search,
   Loader2,
   FolderOpen,
+  AtSign,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -78,6 +79,14 @@ export function ChatPage() {
   const [directUserId, setDirectUserId] = useState("");
   const [createUserSearch, setCreateUserSearch] = useState("");
 
+  // @mention state
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [channelMembers, setChannelMembers] = useState<ChatChannelMember[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mentionListRef = useRef<HTMLDivElement>(null);
+
   const fetchChannels = useCallback(async () => {
     try {
       setLoading(true);
@@ -104,6 +113,17 @@ export function ChatPage() {
       toast.error("Failed to load messages");
     } finally {
       setMessagesLoading(false);
+    }
+  }, []);
+
+  const fetchChannelMembers = useCallback(async (channelId: string) => {
+    try {
+      const data = await api.get<ChatChannelMember[]>(
+        `/api/chat/channels/${channelId}/members`
+      );
+      setChannelMembers(Array.isArray(data) ? data : []);
+    } catch {
+      // silent
     }
   }, []);
 
@@ -165,8 +185,9 @@ export function ChatPage() {
   useEffect(() => {
     if (selectedChannel) {
       fetchMessages(selectedChannel.id);
+      fetchChannelMembers(selectedChannel.id);
     }
-  }, [selectedChannel, fetchMessages]);
+  }, [selectedChannel, fetchMessages, fetchChannelMembers]);
 
   // Auto-refresh messages every 5 seconds
   useEffect(() => {
@@ -291,6 +312,29 @@ export function ChatPage() {
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    // Handle mention dropdown navigation
+    if (showMentionDropdown) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((prev) => Math.min(prev + 1, filteredMentionMembers.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((prev) => Math.max(prev - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" && filteredMentionMembers.length > 0) {
+        e.preventDefault();
+        insertMention(filteredMentionMembers[mentionIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        setShowMentionDropdown(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -341,6 +385,57 @@ export function ChatPage() {
         u.email.toLowerCase().includes(q)
     );
   }, [createUsers, createUserSearch]);
+
+  // ============ @MENTION LOGIC ============
+
+  const filteredMentionMembers = useMemo(() => {
+    const currentUserId = user?.id;
+    const membersWithSelf = [
+      ...(selectedChannel?.members || channelMembers),
+    ];
+    const uniqueMembers = membersWithSelf.filter(
+      (m, i, arr) => arr.findIndex((x) => x.id === m.id) === i
+    );
+    const available = uniqueMembers.filter((m) => m.id !== currentUserId);
+    if (!mentionQuery.trim()) return available;
+    const q = mentionQuery.toLowerCase();
+    return available.filter((m) => m.fullName.toLowerCase().includes(q));
+  }, [mentionQuery, selectedChannel?.members, channelMembers, user?.id]);
+
+  function handleInputChange(value: string) {
+    setNewMessage(value);
+
+    // Detect @mention trigger
+    const cursorPos = value.length;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      setMentionQuery(atMatch[1]);
+      setShowMentionDropdown(true);
+      setMentionIndex(0);
+    } else {
+      setShowMentionDropdown(false);
+    }
+  }
+
+  function insertMention(member: ChatChannelMember) {
+    const cursorPos = newMessage.length;
+    const textBeforeCursor = newMessage.slice(0, cursorPos);
+    const mentionStart = textBeforeCursor.lastIndexOf("@");
+    const before = newMessage.slice(0, mentionStart);
+    const after = newMessage.slice(cursorPos);
+
+    setNewMessage(`${before}@${member.fullName} ${after}`);
+    setShowMentionDropdown(false);
+    setMentionQuery("");
+    mentionIndex;
+
+    // Focus back on input
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  }
 
   return (
     <div className="space-y-6">
@@ -406,8 +501,26 @@ export function ChatPage() {
                             }`}
                           >
                             <Hash className="w-4 h-4 shrink-0 text-muted-foreground" />
-                            <span className="truncate">{ch.name}</span>
-                            <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
+                            <span className="truncate flex-1">{ch.name}</span>
+                            {/* Member avatars */}
+                            {ch.members && ch.members.length > 0 && (
+                              <div className="flex -space-x-1.5 shrink-0">
+                                {ch.members.slice(0, 3).map((m) => (
+                                  <Avatar key={m.id} className="h-5 w-5 border border-background">
+                                    <AvatarImage src={m.avatarUrl || undefined} />
+                                    <AvatarFallback className="text-[7px] bg-primary/10 text-primary">
+                                      {getInitials(m.fullName)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                ))}
+                                {(ch.members.length ?? 0) > 3 && (
+                                  <div className="flex items-center justify-center h-5 w-5 rounded-full bg-muted text-[9px] font-medium border border-background">
+                                    +{ch.members!.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
                               {ch.type}
                             </Badge>
                           </button>
@@ -436,6 +549,7 @@ export function ChatPage() {
                                 >
                                   <div className="relative shrink-0">
                                     <Avatar className="h-5 w-5">
+                                      {dmUser?.avatarUrl && <AvatarImage src={dmUser.avatarUrl} />}
                                       <AvatarFallback className="text-[8px] bg-primary/10 text-primary">
                                         {dmUser ? getInitials(dmUser.fullName) : "DM"}
                                       </AvatarFallback>
@@ -476,6 +590,7 @@ export function ChatPage() {
                         >
                           <div className="relative shrink-0">
                             <Avatar className="h-7 w-7">
+                              {teamUser.avatarUrl && <AvatarImage src={teamUser.avatarUrl} />}
                               <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                 {getInitials(teamUser.fullName)}
                               </AvatarFallback>
@@ -508,6 +623,7 @@ export function ChatPage() {
                     <>
                       <div className="relative">
                         <Avatar className="h-6 w-6">
+                          {selectedDmUser.avatarUrl && <AvatarImage src={selectedDmUser.avatarUrl} />}
                           <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
                             {getInitials(selectedDmUser.fullName)}
                           </AvatarFallback>
@@ -524,6 +640,31 @@ export function ChatPage() {
                       <Badge variant="outline" className="text-[10px]">
                         {selectedChannel.type}
                       </Badge>
+                      {/* Show member count in header */}
+                      {selectedChannel.memberCount !== undefined && selectedChannel.memberCount > 0 && (
+                        <div className="flex items-center gap-1 ml-1">
+                          <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">{selectedChannel.memberCount}</span>
+                        </div>
+                      )}
+                      {/* Show member avatars in header */}
+                      {selectedChannel.members && selectedChannel.members.length > 0 && (
+                        <div className="flex -space-x-1.5 ml-1">
+                          {selectedChannel.members.slice(0, 5).map((m) => (
+                            <Avatar key={m.id} className="h-5 w-5 border border-background">
+                              <AvatarImage src={m.avatarUrl || undefined} />
+                              <AvatarFallback className="text-[7px] bg-primary/10 text-primary">
+                                {getInitials(m.fullName)}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                          {selectedChannel.members.length > 5 && (
+                            <div className="flex items-center justify-center h-5 w-5 rounded-full bg-muted text-[9px] font-medium border border-background">
+                              +{selectedChannel.members.length - 5}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -560,7 +701,7 @@ export function ChatPage() {
                                   {msg.senderName || "Unknown"}
                                 </p>
                               )}
-                              <p className="text-sm">{msg.content}</p>
+                              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                               <p
                                 className={`text-[10px] mt-1 ${
                                   isMe ? "opacity-70" : "text-muted-foreground"
@@ -576,19 +717,60 @@ export function ChatPage() {
                   )}
                 </ScrollArea>
 
-                {/* Message Input */}
+                {/* Message Input with @mention support */}
                 <div className="p-3 border-t">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Type a message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="flex-1"
-                    />
+                  <div className="relative flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        ref={inputRef}
+                        placeholder="Type a message... (use @ to mention)"
+                        value={newMessage}
+                        onChange={(e) => handleInputChange(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="flex-1 pr-8"
+                      />
+                      <AtSign className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    </div>
                     <Button onClick={handleSend} disabled={sending || !newMessage.trim()} size="icon">
                       <Send className="w-4 h-4" />
                     </Button>
+
+                    {/* Mention Dropdown */}
+                    {showMentionDropdown && filteredMentionMembers.length > 0 && (
+                      <div
+                        ref={mentionListRef}
+                        className="absolute bottom-full left-0 mb-1 w-64 max-h-48 overflow-y-auto rounded-lg border bg-popover shadow-md z-50"
+                      >
+                        <div className="p-1">
+                          {filteredMentionMembers.map((member, idx) => (
+                            <button
+                              key={member.id}
+                              type="button"
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors ${
+                                idx === mentionIndex
+                                  ? "bg-accent"
+                                  : "hover:bg-accent/50"
+                              }`}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                insertMention(member);
+                              }}
+                            >
+                              <Avatar className="h-5 w-5">
+                                <AvatarImage src={member.avatarUrl || undefined} />
+                                <AvatarFallback className="text-[7px] bg-primary/10 text-primary">
+                                  {getInitials(member.fullName)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{member.fullName}</p>
+                              </div>
+                              <span className="text-xs text-muted-foreground">{member.role}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
@@ -720,6 +902,7 @@ export function ChatPage() {
                             onCheckedChange={() => toggleMember(u.id)}
                           />
                           <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarImage src={u.avatarUrl || undefined} />
                             <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
                               {getInitials(u.fullName)}
                             </AvatarFallback>
@@ -772,6 +955,7 @@ export function ChatPage() {
                           }`}
                         >
                           <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarImage src={u.avatarUrl || undefined} />
                             <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
                               {getInitials(u.fullName)}
                             </AvatarFallback>

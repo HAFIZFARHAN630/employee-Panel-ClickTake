@@ -788,3 +788,40 @@ Stage Summary:
 - Users API PATCH handler supports isActive, onboardingStatus, role, department updates
 - Announcements show expiration status badges (Expired, X Days Left, No Expiry)
 - Agreement dropdowns scroll properly at max-height 200px
+
+---
+Task ID: SETTINGS-BRANDING-FIX
+Agent: Settings & Branding Fix Agent
+Task: Fix settings persistence, expand timezones, fix branding page
+
+Work Log:
+- Added `GeneralSettings` model to Prisma schema with fields: companyName, timezone, dateFormat, emailNotifs, pushNotifs, inAppNotifs, hrBotEnabled
+- Created `general_settings` table directly in SQLite database
+- Fixed datasource provider from `postgresql` to `sqlite` to match actual DATABASE_URL
+- Rewrote `/api/settings` GET handler to fetch both SessionSettings and GeneralSettings, return merged response
+- Rewrote `/api/settings` PUT handler to separate session fields from general/notification fields, save to both tables, return merged response
+- Updated `settings-page.tsx`:
+  - Expanded TIMEZONES array from 11 to 26 entries, adding all major Asian timezones (Karachi, Kolkata, Dhaka, Bangkok, Jakarta, Shanghai, Hong Kong, Singapore, Taipei, Tokyo, Seoul, Kuala Lumpur, Riyadh, Dubai, Tehran, Colombo, Kathmandu)
+  - Now loads companyName, timezone, dateFormat, emailNotifs, pushNotifs, inAppNotifs, hrBotEnabled from API on mount
+  - Removed hardcoded default "My Organization" for companyName (loads from DB)
+  - General settings save sends only companyName, timezone, dateFormat
+  - Notification settings save sends only emailNotifs, pushNotifs, inAppNotifs
+  - Added HR Bot toggle card with immediate API call on toggle
+- Fixed `branding-page.tsx`:
+  - Added file upload for logos (Upload Logo File button) alongside URL input
+  - Added URL input for favicon alongside file upload
+  - Added logo thumbnail previews next to URL inputs
+  - Fixed save payload to send arrays/objects instead of JSON strings (logoUrls as string[], socialMediaLinks as object, officeLocations as object array)
+  - Added fileToBase64 helper for cleaner upload code
+  - Removed unused toJsonString/toJsonObject helpers (replaced with direct array/object sends)
+- Updated TypeScript types in `types.ts`:
+  - Extended SessionSettings with activityCheckIntervalMinutes, popupCountdownSeconds, and optional general/notification fields
+  - Added new GeneralSettings interface
+- Regenerated Prisma client after schema changes
+- Lint passes (0 errors, 1 pre-existing warning in chat-page.tsx)
+
+Stage Summary:
+- Settings now persist correctly after page refresh (companyName, timezone, dateFormat, notification toggles, hrBotEnabled all saved to general_settings table)
+- 26 timezone options available including all major Asian timezones
+- Branding page supports both URL input and file upload for logos and favicon
+- Branding save sends correctly formatted arrays/objects to API

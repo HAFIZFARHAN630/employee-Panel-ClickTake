@@ -115,7 +115,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Auto-stop any active time timers before logout
+    try {
+      const stored = getStoredAuth();
+      if (stored?.token) {
+        await fetch(`${API_BASE}/api/time-logs/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${stored.token}` },
+          body: JSON.stringify({ action: "stop_all" }),
+        }).catch(() => {});
+      }
+    } catch { /* silent */ }
+
     clearAuth();
     setState({
       user: null,

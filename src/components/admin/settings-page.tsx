@@ -40,6 +40,7 @@ import {
   Clock,
   Building2,
   Bell,
+  Bot,
   Download,
   RotateCcw,
   Save,
@@ -55,10 +56,27 @@ const TIMEZONES = [
   { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)" },
   { value: "Europe/London", label: "London (GMT)" },
   { value: "Europe/Paris", label: "Paris (CET)" },
-  { value: "Asia/Shanghai", label: "Shanghai (CST)" },
-  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
-  { value: "Asia/Kolkata", label: "Kolkata (IST)" },
+  // Asian timezones
+  { value: "Asia/Karachi", label: "Karachi (PKT - UTC+5)" },
+  { value: "Asia/Kolkata", label: "Kolkata (IST - UTC+5:30)" },
+  { value: "Asia/Dhaka", label: "Dhaka (BST - UTC+6)" },
+  { value: "Asia/Bangkok", label: "Bangkok (ICT - UTC+7)" },
+  { value: "Asia/Jakarta", label: "Jakarta (WIB - UTC+7)" },
+  { value: "Asia/Shanghai", label: "Shanghai (CST - UTC+8)" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong (HKT - UTC+8)" },
+  { value: "Asia/Singapore", label: "Singapore (SGT - UTC+8)" },
+  { value: "Asia/Taipei", label: "Taipei (CST - UTC+8)" },
+  { value: "Asia/Tokyo", label: "Tokyo (JST - UTC+9)" },
+  { value: "Asia/Seoul", label: "Seoul (KST - UTC+9)" },
+  { value: "Asia/Kuala_Lumpur", label: "Kuala Lumpur (MYT - UTC+8)" },
+  { value: "Asia/Riyadh", label: "Riyadh (AST - UTC+3)" },
+  { value: "Asia/Dubai", label: "Dubai (GST - UTC+4)" },
+  { value: "Asia/Tehran", label: "Tehran (IRST - UTC+3:30)" },
+  { value: "Asia/Colombo", label: "Colombo (IST - UTC+5:30)" },
+  { value: "Asia/Kathmandu", label: "Kathmandu (NPT - UTC+5:45)" },
+  // Other
   { value: "Australia/Sydney", label: "Sydney (AEST)" },
+  { value: "Pacific/Auckland", label: "Auckland (NZST)" },
 ];
 
 const DATE_FORMATS = [
@@ -75,15 +93,19 @@ export function SettingsPage() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sessionSaving, setSessionSaving] = useState(false);
 
-  // General settings (client-side only)
-  const [companyName, setCompanyName] = useState("My Organization");
+  // General settings (persisted via API)
+  const [companyName, setCompanyName] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [dateFormat, setDateFormat] = useState("YYYY-MM-DD");
 
-  // Notification settings (client-side only)
+  // Notification settings (persisted via API)
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
   const [inAppNotifs, setInAppNotifs] = useState(true);
+
+  // HR Bot toggle (persisted via API)
+  const [hrBotEnabled, setHrBotEnabled] = useState(true);
+  const [hrBotSaving, setHrBotSaving] = useState(false);
 
   // General/Notification saving
   const [generalSaving, setGeneralSaving] = useState(false);
@@ -100,6 +122,14 @@ export function SettingsPage() {
       setSessionSettings(data);
       setTimeoutMinutes(data.timeTrackingTimeoutMinutes);
       setWarningMinutes(data.timeTrackingWarningMinutes);
+      // Load general & notification settings from API
+      if (data.companyName !== undefined) setCompanyName(data.companyName);
+      if (data.timezone !== undefined) setTimezone(data.timezone);
+      if (data.dateFormat !== undefined) setDateFormat(data.dateFormat);
+      if (data.emailNotifs !== undefined) setEmailNotifs(data.emailNotifs);
+      if (data.pushNotifs !== undefined) setPushNotifs(data.pushNotifs);
+      if (data.inAppNotifs !== undefined) setInAppNotifs(data.inAppNotifs);
+      if (data.hrBotEnabled !== undefined) setHrBotEnabled(data.hrBotEnabled);
     } catch {
       // Use defaults if settings endpoint fails
       setTimeoutMinutes(30);
@@ -135,9 +165,6 @@ export function SettingsPage() {
         companyName,
         timezone,
         dateFormat,
-        emailNotifs,
-        pushNotifs,
-        inAppNotifs,
       });
       toast.success("General settings saved");
     } catch (err) {
@@ -151,9 +178,6 @@ export function SettingsPage() {
     try {
       setNotifSaving(true);
       await api.put("/api/settings", {
-        companyName,
-        timezone,
-        dateFormat,
         emailNotifs,
         pushNotifs,
         inAppNotifs,
@@ -163,6 +187,20 @@ export function SettingsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setNotifSaving(false);
+    }
+  };
+
+  const toggleHrBot = async (value: boolean) => {
+    setHrBotEnabled(value);
+    try {
+      setHrBotSaving(true);
+      await api.put("/api/settings", { hrBotEnabled: value });
+      toast.success(value ? "HR Bot enabled" : "HR Bot disabled");
+    } catch (err) {
+      setHrBotEnabled(!value);
+      toast.error(err instanceof Error ? err.message : "Failed to update HR Bot setting");
+    } finally {
+      setHrBotSaving(false);
     }
   };
 
@@ -423,6 +461,36 @@ export function SettingsPage() {
             {notifSaving ? "Saving..." : "Save Changes"}
           </Button>
         </CardFooter>
+      </Card>
+
+      {/* HR Bot Settings Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-lg">HR Bot</CardTitle>
+          </div>
+          <CardDescription>
+            Enable or disable the AI-powered HR assistant bot
+          </CardDescription>
+        </CardHeader>
+        <Separator />
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="hr-bot-toggle" className="cursor-pointer">HR Bot Enabled</Label>
+              <p className="text-xs text-muted-foreground">
+                Allow employees to interact with the AI HR assistant for policy questions and HR queries
+              </p>
+            </div>
+            <Switch
+              id="hr-bot-toggle"
+              checked={hrBotEnabled}
+              onCheckedChange={toggleHrBot}
+              disabled={hrBotSaving}
+            />
+          </div>
+        </CardContent>
       </Card>
 
       {/* Danger Zone Card */}

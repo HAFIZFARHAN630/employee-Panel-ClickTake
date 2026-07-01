@@ -43,25 +43,35 @@ export async function GET(req: NextRequest) {
 
     const users = await db.user.findMany({
       where,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        userType: true,
-        role: true,
-        isActive: true,
-        isSuperuser: true,
-        avatarUrl: true,
-        onboardingStatus: true,
-        createdAt: true,
-        updatedAt: true,
+      orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+      include: {
         employee: { select: { id: true, department: true, designation: true } },
+        verificationRecords: {
+          where: { status: "pending" },
+          orderBy: { submittedAt: "desc" },
+          take: 1,
+          select: { id: true, status: true, submittedAt: true, videoUrl: true },
+        },
       },
     });
 
     return NextResponse.json({
-      users: users.map((u) => ({ ...u, createdAt: u.createdAt.toISOString(), updatedAt: u.updatedAt.toISOString() }))
+      users: users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        fullName: u.fullName,
+        userType: u.userType,
+        role: u.role,
+        isActive: u.isActive,
+        isSuperuser: u.isSuperuser,
+        avatarUrl: u.avatarUrl,
+        isFaceVerified: u.isFaceVerified,
+        onboardingStatus: u.onboardingStatus,
+        employee: u.employee,
+        pendingVerification: u.verificationRecords?.[0] || null,
+        createdAt: u.createdAt.toISOString(),
+        updatedAt: u.updatedAt.toISOString(),
+      }))
     });
   } catch (error) {
     console.error("Error fetching users:", error);
