@@ -8,16 +8,21 @@ services:
     buildCommand: |
       npm install -g bun
       bun install
+      mkdir -p db
       bunx prisma generate
+      bunx prisma db push --skip-generate
       npx next build
       cp -r .next/static .next/standalone/.next/
       cp -r public .next/standalone/
+      cp -r prisma .next/standalone/prisma
+      cp -r db .next/standalone/db
     startCommand: node .next/standalone/server.js
     envVars:
       - key: NODE_ENV
         value: production
-      # ── Database (set in Render Dashboard → Environment) ──
+      # ── Database (SQLite — Render uses local file) ──
       - key: DATABASE_URL
+        value: file:./db/custom.db
         sync: false
       # ── Authentication ──
       - key: JWT_SECRET
