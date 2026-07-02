@@ -98,7 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        return { success: false, message: data.message || data.error || "" };
+        const msg = data.message || data.error || "";
+        // Pass through the real error so the UI can show useful messages
+        return { success: false, message: msg || `Server error (${res.status})` };
       }
       const data = await res.json();
       persistAuth(data.user, data.token);
@@ -110,8 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         appView: (data.user.userType === "admin" || data.user.userType === "super_admin" || data.user.userType === "manager") ? "admin" : "employee",
       }));
       return { success: true };
-    } catch {
-      return { success: false };
+    } catch (err) {
+      // Network error / CORS / server unreachable
+      const msg = err instanceof Error ? err.message : "Network error";
+      return { success: false, message: `CONNECTION_ERROR:${msg}` };
     }
   }, []);
 

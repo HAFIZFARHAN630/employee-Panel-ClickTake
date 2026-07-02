@@ -53,6 +53,17 @@ export function LoginPage() {
           setError(
             "Your account is pending admin approval. Please wait for an email."
           );
+        } else if (result.message?.startsWith("CONNECTION_ERROR:")) {
+          setError(
+            "Cannot connect to server. Please check your internet and try again."
+          );
+        } else if (result.message?.startsWith("Login failed:")) {
+          // 500 from server — show the real DB error for debugging
+          setError(result.message);
+        } else if (result.message?.startsWith("Server error")) {
+          setError(
+            `Server returned ${result.message}. The backend may be deploying.`
+          );
         } else {
           setError("Invalid email or password. Please try again.");
         }

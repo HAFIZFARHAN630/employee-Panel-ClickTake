@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
 
-    // Trim and normalize inputs
+    // Trim inputs
     const normalizedEmail = (email || "").trim().toLowerCase();
     const normalizedPassword = (password || "").trim();
 
@@ -17,22 +17,33 @@ export async function POST(req: Request) {
       );
     }
 
-    // Case-insensitive email lookup: fetch all and filter in JS
-    // (SQLite's default collation is case-sensitive for findFirst)
-    const allUsers = await db.user.findMany({
-      where: { email: { contains: normalizedEmail.split("@")[0] } },
-      include: { individualUser: true, employee: true },
-      take: 50,
+    // Use select to ONLY fetch columns that definitely exist.
+    // This avoids crashes if onboarding_status or other new columns
+    // haven't been migrated in the production database yet.
+    const user = await db.user.findFirst({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        fullName: true,
+        userType: true,
+        role: true,
+        isActive: true,
+        isSuperuser: true,
+        isFaceVerified: true,
+        avatarUrl: true,
+        tenantId: true,
+        requestedRole: true,
+        createdAt: true,
+        updatedAt: true,
+        individualUser: { select: { id: true, phoneNumber: true, address: true } },
+        employee: { select: { id: true, department: true, designation: true } },
+      },
     });
 
-    const user = allUsers.find(
-      (u) => u.email.toLowerCase() === normalizedEmail
-    );
-
     if (!user || user.password !== normalizedPassword) {
-      console.warn(
-        `[LOGIN-FAILED] email=${normalizedEmail}, userFound=${!!user}`
-      );
+      console.warn(`[LOGIN-FAILED] email=${normalizedEmail}, userFound=${!!user}`);
       return NextResponse.json(
         { message: "Invalid credentials" },
         { status: 401 }
