@@ -16,6 +16,8 @@ services:
       cp -r public .next/standalone/
       cp -r prisma .next/standalone/prisma
       cp -r db .next/standalone/db
+      cp -r node_modules/prisma .next/standalone/node_modules/prisma
+      cp -r node_modules/@prisma .next/standalone/node_modules/@prisma
     startCommand: node .next/standalone/server.js
     envVars:
       - key: NODE_ENV
