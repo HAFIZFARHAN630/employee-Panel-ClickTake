@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       }
 
       const apiKey = decryptApiKey(aiConfig.apiKey);
+      console.log(`[HR-CHAT] Using AI: provider=${aiConfig.provider}, model=${aiConfig.modelName}, keyLen=${apiKey.length}`);
 
       // Determine endpoint based on provider (handle both "google" and "gemini")
       const provider = aiConfig.provider.toLowerCase();
@@ -155,7 +156,7 @@ export async function POST(req: NextRequest) {
       console.error("[HR-CHAT] AI fallback error:", msg);
       return NextResponse.json({
         answer:
-          "I'm having trouble connecting to the AI service. Please try again later.",
+          `AI service error: ${msg}. Please check your AI Config settings (API key, model name, provider).`,
         source: "error",
       });
     }

@@ -7,6 +7,16 @@ export function encryptApiKey(key: string): string {
 }
 
 export function decryptApiKey(encrypted: string): string {
-  const reversed = encrypted.split("").reverse().join("");
-  return Buffer.from(reversed, "base64").toString("utf-8");
+  try {
+    const reversed = encrypted.split("").reverse().join("");
+    const decoded = Buffer.from(reversed, "base64").toString("utf-8");
+    // If the result looks like valid text (printable ASCII), return it
+    if (decoded && /^[\x20-\x7E\n\r\t]+$/.test(decoded)) {
+      return decoded;
+    }
+  } catch {
+    // Base64 decode failed — key might be plain text
+  }
+  // Fallback: return as-is (handles plain-text keys stored before encryption was added)
+  return encrypted;
 }
