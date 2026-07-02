@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function isP2025(error: unknown): boolean {
+  return error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025";
+}
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = await authenticate(req);
@@ -18,8 +22,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const department = await db.department.update({
       where: { id },
       data: {
-        ...(name !== undefined && { name: name.trim() }),
-        ...(description !== undefined && { description: description.trim() }),
+        ...(name !== undefined && { name: String(name).trim() }),
+        ...(description !== undefined && { description: description != null ? String(description).trim() : null }),
         ...(isActive !== undefined && { isActive }),
       },
     });
@@ -31,8 +35,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       isActive: department.isActive,
       createdAt: department.createdAt.toISOString(),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error updating department:", error);
+    if (isP2025(error)) return NextResponse.json({ message: "Department not found" }, { status: 404 });
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
@@ -50,8 +55,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await db.department.delete({ where: { id } });
 
     return NextResponse.json({ message: "Department deleted" });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error deleting department:", error);
+    if (isP2025(error)) return NextResponse.json({ message: "Department not found" }, { status: 404 });
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate, queryParams } from "@/lib/auth-middleware";
+import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
 
 // ============ HAVERSINE FORMULA ============
 function haversineDistance(
@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
+
+    if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
     const params = queryParams(req);
     const employeeId = params.employeeId || "";
@@ -91,7 +93,14 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { employeeId, action, latitude, longitude } = body;
+    let { employeeId, action, latitude, longitude } = body;
+
+    // Non-admin users can only check in/out for themselves
+    if (!isAdmin(auth)) {
+      const employee = await db.employee.findUnique({ where: { userId: auth.userId } });
+      if (!employee) return NextResponse.json({ message: "No employee record found" }, { status: 403 });
+      employeeId = employee.id;
+    }
 
     if (!employeeId || !action) {
       return NextResponse.json({ message: "employeeId and action are required" }, { status: 400 });

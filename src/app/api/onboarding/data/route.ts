@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
 
+function safeJsonParse(str: string): unknown {
+  try { return JSON.parse(str); } catch { return str; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -41,21 +45,24 @@ export async function GET(req: NextRequest) {
     });
 
     const formatted = data.map((d) => ({
-      ...d,
-      section1Personal: d.section1Personal as unknown,
-      section2Contact: d.section2Contact as unknown,
-      section3Emergency: d.section3Emergency as unknown,
-      section4Education: d.section4Education as unknown,
-      section5Experience: d.section5Experience as unknown,
-      section6Banking: d.section6Banking as unknown,
-      section7Documents: d.section7Documents as unknown,
-      section8Declaration: d.section8Declaration as unknown,
+      id: d.id,
+      userId: d.userId,
+      section1Personal: safeJsonParse(d.section1Personal),
+      section2Contact: safeJsonParse(d.section2Contact),
+      section3Emergency: safeJsonParse(d.section3Emergency),
+      section4Education: safeJsonParse(d.section4Education),
+      section5Experience: safeJsonParse(d.section5Experience),
+      section6Banking: safeJsonParse(d.section6Banking),
+      section7Documents: safeJsonParse(d.section7Documents),
+      section8Declaration: safeJsonParse(d.section8Declaration),
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
       user: {
-        ...d.user,
-        createdAt: undefined,
-        updatedAt: undefined,
+        id: d.user.id,
+        email: d.user.email,
+        fullName: d.user.fullName,
+        isActive: d.user.isActive,
+        employee: d.user.employee,
       },
     }));
 

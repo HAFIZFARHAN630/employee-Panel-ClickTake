@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate, queryParams } from "@/lib/auth-middleware";
+import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
+
+    if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
     const params = queryParams(req);
     const status = params.status || "";
@@ -65,6 +67,8 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
+
+    if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
     const body = await req.json();
     const { employeeId, projectId, status } = body;

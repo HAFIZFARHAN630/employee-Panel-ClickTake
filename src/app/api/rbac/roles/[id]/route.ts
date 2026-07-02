@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined, fallback: unknown = []): unknown {
+  if (!val) return fallback;
+  try { return JSON.parse(val); } catch { return fallback; }
+}
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -32,7 +37,7 @@ export async function PUT(
 
     return NextResponse.json({
       ...role,
-      permissions: JSON.parse(role.permissions),
+      permissions: safeJsonParse(role.permissions),
       createdAt: role.createdAt.toISOString(),
       updatedAt: role.updatedAt.toISOString(),
     });

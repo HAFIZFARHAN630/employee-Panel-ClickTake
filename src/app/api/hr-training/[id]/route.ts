@@ -20,8 +20,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     return NextResponse.json({ ...data, createdAt: data.createdAt.toISOString(), updatedAt: data.updatedAt.toISOString() });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error updating HR training:", error);
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ message: "HR training data not found" }, { status: 404 });
+    }
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
@@ -35,8 +38,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await db.hRTrainingData.delete({ where: { id } });
     return NextResponse.json({ message: "Deleted" });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error deleting HR training:", error);
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ message: "HR training data not found" }, { status: 404 });
+    }
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

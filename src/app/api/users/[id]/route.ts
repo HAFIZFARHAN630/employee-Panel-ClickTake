@@ -85,7 +85,7 @@ export async function PATCH(
     if (body.role) {
       updateData.role = body.role;
     }
-    if (body.department && body.employeeUpdate) {
+    if (body.department !== undefined) {
       employeeUpdate.department = body.department;
     }
 
@@ -100,8 +100,11 @@ export async function PATCH(
       include: { employee: true },
     });
 
+    const { password: _, ...safeUser } = user;
+    void _;
+
     return NextResponse.json({
-      ...user,
+      ...safeUser,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     });
@@ -143,8 +146,11 @@ export async function PUT(
       },
     });
 
+    const { password: _, ...safeUser } = user;
+    void _;
+
     return NextResponse.json({
-      ...user,
+      ...safeUser,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     });

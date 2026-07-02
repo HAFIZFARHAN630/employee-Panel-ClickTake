@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined, fallback: unknown = []): unknown {
+  if (!val) return fallback;
+  try { return JSON.parse(val); } catch { return fallback; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -14,7 +19,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       roles.map((r) => ({
         ...r,
-        permissions: JSON.parse(r.permissions),
+        permissions: safeJsonParse(r.permissions),
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
       }))
@@ -49,14 +54,14 @@ export async function POST(req: NextRequest) {
         color: color || "#6b7280",
         isSystem: isSystem || false,
         parentRole: parentRole || null,
-        permissions: permissions ? JSON.stringify(permissions) : "{}",
+        permissions: permissions ? JSON.stringify(permissions) : "[]",
       },
     });
 
     return NextResponse.json(
       {
         ...role,
-        permissions: JSON.parse(role.permissions),
+        permissions: safeJsonParse(role.permissions),
         createdAt: role.createdAt.toISOString(),
         updatedAt: role.updatedAt.toISOString(),
       },

@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(value: unknown, fallback: unknown): unknown {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "object") return value; // already parsed
+  try {
+    return JSON.parse(String(value));
+  } catch {
+    return fallback;
+  }
+}
+
 function formatBusinessData(bd: Record<string, unknown>) {
   return {
     id: bd.id,
@@ -16,14 +26,14 @@ function formatBusinessData(bd: Record<string, unknown>) {
     googleMapLink: bd.googleMapLink,
     gmbProfileLink: bd.gmbProfileLink,
     openingHours: bd.openingHours,
-    socialMedia: bd.socialMedia,
-    services: bd.services,
-    targetAreas: bd.targetAreas,
+    socialMedia: safeJsonParse(bd.socialMedia, {}),
+    services: safeJsonParse(bd.services, []),
+    targetAreas: safeJsonParse(bd.targetAreas, []),
     shortDescription: bd.shortDescription,
     longDescription: bd.longDescription,
-    workTargets: bd.workTargets,
-    hashtags: bd.hashtags,
-    seoKeywords: bd.seoKeywords,
+    workTargets: safeJsonParse(bd.workTargets, {}),
+    hashtags: safeJsonParse(bd.hashtags, []),
+    seoKeywords: safeJsonParse(bd.seoKeywords, []),
     assignedTo: bd.assignedTo ?? null,
     assignedDepartment: bd.assignedDepartment ?? null,
     createdAt: (bd.createdAt as Date).toISOString(),
@@ -44,14 +54,14 @@ function buildDataFromBody(body: Record<string, unknown>) {
     googleMapLink: body.googleMapLink ?? "",
     gmbProfileLink: body.gmbProfileLink ?? "",
     openingHours: body.openingHours ?? "",
-    socialMedia: body.socialMedia ?? "{}",
-    services: body.services ?? "[]",
-    targetAreas: body.targetAreas ?? "[]",
+    socialMedia: typeof body.socialMedia === "string" ? body.socialMedia : JSON.stringify(body.socialMedia || {}),
+    services: typeof body.services === "string" ? body.services : JSON.stringify(body.services || []),
+    targetAreas: typeof body.targetAreas === "string" ? body.targetAreas : JSON.stringify(body.targetAreas || []),
     shortDescription: body.shortDescription ?? "",
     longDescription: body.longDescription ?? "",
-    workTargets: body.workTargets ?? "{}",
-    hashtags: body.hashtags ?? "[]",
-    seoKeywords: body.seoKeywords ?? "[]",
+    workTargets: typeof body.workTargets === "string" ? body.workTargets : JSON.stringify(body.workTargets || {}),
+    hashtags: typeof body.hashtags === "string" ? body.hashtags : JSON.stringify(body.hashtags || []),
+    seoKeywords: typeof body.seoKeywords === "string" ? body.seoKeywords : JSON.stringify(body.seoKeywords || []),
     assignedTo: body.assignedTo ?? null,
     assignedDepartment: body.assignedDepartment ?? null,
   };
@@ -77,8 +87,6 @@ export async function GET(req: NextRequest) {
       const userDept = user?.employee?.department || "";
       const filtered = allData.filter(
         (d) =>
-          !d.assignedTo &&
-          !d.assignedDepartment &&
           d.assignedTo === auth.userId ||
           (d.assignedDepartment && d.assignedDepartment === userDept)
       );

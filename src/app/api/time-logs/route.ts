@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate, queryParams } from "@/lib/auth-middleware";
+import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
 
 export async function GET(req: NextRequest) {
   try {
@@ -73,7 +73,14 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { employeeId, project, task, tag, startTime, endTime, duration } = body;
+    let { employeeId, project, task, tag, startTime, endTime, duration } = body;
+
+    // Non-admin users can only create time logs for themselves
+    if (!isAdmin(auth)) {
+      const employee = await db.employee.findUnique({ where: { userId: auth.userId } });
+      if (!employee) return NextResponse.json({ message: "No employee record found" }, { status: 403 });
+      employeeId = employee.id;
+    }
 
     if (!employeeId || !startTime) {
       return NextResponse.json({ message: "employeeId and startTime are required" }, { status: 400 });

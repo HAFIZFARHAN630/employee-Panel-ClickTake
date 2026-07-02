@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse<T>(val: string | null | undefined, fallback: T): T {
+  if (!val) return fallback;
+  try { return JSON.parse(val); } catch { return fallback; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -27,11 +32,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ...settings,
-      logoUrls: JSON.parse(settings.logoUrls),
-      officeLocations: JSON.parse(settings.officeLocations),
-      contactEmails: JSON.parse(settings.contactEmails),
-      contactPhones: JSON.parse(settings.contactPhones),
-      socialMediaLinks: JSON.parse(settings.socialMediaLinks),
+      logoUrls: safeJsonParse(settings.logoUrls, []),
+      officeLocations: safeJsonParse(settings.officeLocations, []),
+      contactEmails: safeJsonParse(settings.contactEmails, []),
+      contactPhones: safeJsonParse(settings.contactPhones, []),
+      socialMediaLinks: safeJsonParse(settings.socialMediaLinks, {}),
       faviconUrl: settings.faviconUrl || "",
       createdAt: settings.createdAt.toISOString(),
       updatedAt: settings.updatedAt.toISOString(),
@@ -85,11 +90,11 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({
       ...settings,
-      logoUrls: JSON.parse(settings.logoUrls),
-      officeLocations: JSON.parse(settings.officeLocations),
-      contactEmails: JSON.parse(settings.contactEmails),
-      contactPhones: JSON.parse(settings.contactPhones),
-      socialMediaLinks: JSON.parse(settings.socialMediaLinks),
+      logoUrls: safeJsonParse(settings.logoUrls, []),
+      officeLocations: safeJsonParse(settings.officeLocations, []),
+      contactEmails: safeJsonParse(settings.contactEmails, []),
+      contactPhones: safeJsonParse(settings.contactPhones, []),
+      socialMediaLinks: safeJsonParse(settings.socialMediaLinks, {}),
       faviconUrl: settings.faviconUrl || "",
       createdAt: settings.createdAt.toISOString(),
       updatedAt: settings.updatedAt.toISOString(),

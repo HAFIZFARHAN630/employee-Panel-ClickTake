@@ -43,6 +43,7 @@ export async function POST(
             customPrompt: t.customPrompt,
             phase: t.phase,
             estimatedHours: t.estimatedHours,
+            sortOrder: t.sortOrder,
           })),
         },
       },

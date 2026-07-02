@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate } from "@/lib/auth-middleware";
+import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,6 +9,8 @@ export async function PATCH(
   try {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
+
+    if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
     const { id } = await params;
     const body = await req.json();

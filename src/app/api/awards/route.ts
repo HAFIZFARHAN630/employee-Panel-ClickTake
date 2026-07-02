@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined): unknown {
+  if (!val) return null;
+  try { return JSON.parse(val); } catch { return null; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -23,7 +28,7 @@ export async function GET(req: NextRequest) {
         points: a.points,
         reason: a.reason,
         targetType: a.targetType,
-        targetIds: a.targetIds ? JSON.parse(a.targetIds) : null,
+        targetIds: safeJsonParse(a.targetIds),
         employeeName: a.employee?.user.fullName ?? "Unknown",
         department: a.employee?.department ?? "",
         awardedByName: a.awardedBy?.fullName ?? "",

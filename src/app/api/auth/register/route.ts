@@ -5,7 +5,10 @@ export async function POST(req: Request) {
   try {
     const { email, password, fullName, requestedRole } = await req.json();
 
-    if (!email || !password || !fullName || !requestedRole) {
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    const normalizedPassword = (password || "").trim();
+
+    if (!normalizedEmail || !normalizedPassword || !fullName || !requestedRole) {
       return NextResponse.json(
         { message: "Missing required fields: email, password, fullName, requestedRole" },
         { status: 400 }
@@ -19,7 +22,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const existing = await db.user.findUnique({ where: { email } });
+    const existing = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
       return NextResponse.json(
         { message: "Email already registered" },
@@ -29,8 +32,8 @@ export async function POST(req: Request) {
 
     const user = await db.user.create({
       data: {
-        email,
-        password,
+        email: normalizedEmail,
+        password: normalizedPassword,
         fullName,
         role: requestedRole,
         userType: requestedRole,
@@ -64,6 +67,6 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Register error:", msg);
-    return NextResponse.json({ message: "Registration failed: " + msg }, { status: 500 });
+    return NextResponse.json({ message: "Registration failed" }, { status: 500 });
   }
 }

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined, fallback: unknown = []): unknown {
+  if (!val) return fallback;
+  try { return JSON.parse(val); } catch { return fallback; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -12,7 +17,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       shifts.map((s) => ({
         ...s,
-        applicableIds: JSON.parse(s.applicableIds),
+        applicableIds: safeJsonParse(s.applicableIds),
         createdAt: s.createdAt.toISOString(),
         updatedAt: s.updatedAt.toISOString(),
       }))
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { ...shift, applicableIds: JSON.parse(shift.applicableIds), createdAt: shift.createdAt.toISOString(), updatedAt: shift.updatedAt.toISOString() },
+      { ...shift, applicableIds: safeJsonParse(shift.applicableIds), createdAt: shift.createdAt.toISOString(), updatedAt: shift.updatedAt.toISOString() },
       { status: 201 }
     );
   } catch (error) {

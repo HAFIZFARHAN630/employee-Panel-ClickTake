@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined): unknown {
+  if (!val) return [];
+  try { return JSON.parse(val); } catch { return []; }
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = await authenticate(req);
@@ -13,8 +18,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({
       ...template,
-      applicableRoles: JSON.parse(template.applicableRoles),
-      applicableDepartments: JSON.parse(template.applicableDepartments),
+      applicableRoles: safeJsonParse(template.applicableRoles),
+      applicableDepartments: safeJsonParse(template.applicableDepartments),
       createdAt: template.createdAt.toISOString(),
       updatedAt: template.updatedAt.toISOString(),
     });
@@ -44,9 +49,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    return NextResponse.json({ ...template, createdAt: template.createdAt.toISOString(), updatedAt: template.updatedAt.toISOString() });
-  } catch (error) {
+    return NextResponse.json({
+      ...template,
+      applicableRoles: safeJsonParse(template.applicableRoles),
+      applicableDepartments: safeJsonParse(template.applicableDepartments),
+      createdAt: template.createdAt.toISOString(),
+      updatedAt: template.updatedAt.toISOString(),
+    });
+  } catch (error: unknown) {
     console.error("Error updating agreement:", error);
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ message: "Not found" }, { status: 404 });
+    }
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
@@ -60,8 +74,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await db.agreementTemplate.delete({ where: { id } });
     return NextResponse.json({ message: "Deleted" });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error deleting agreement:", error);
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ message: "Not found" }, { status: 404 });
+    }
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

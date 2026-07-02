@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
+import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
 export async function GET(req: NextRequest) {
   try {

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate } from "@/lib/auth-middleware";
 
+function toJsonString(val: unknown): string {
+  if (val === undefined || val === null) return "{}";
+  if (typeof val === "string") return val;
+  return JSON.stringify(val);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -50,25 +56,25 @@ export async function POST(req: NextRequest) {
     await db.employeeOnboardingData.upsert({
       where: { userId: auth.userId },
       update: {
-        ...(section1Personal !== undefined && { section1Personal }),
-        ...(section2Contact !== undefined && { section2Contact }),
-        ...(section3Emergency !== undefined && { section3Emergency }),
-        ...(section4Education !== undefined && { section4Education }),
-        ...(section5Experience !== undefined && { section5Experience }),
-        ...(section6Banking !== undefined && { section6Banking }),
-        ...(section7Documents !== undefined && { section7Documents }),
-        ...(section8Declaration !== undefined && { section8Declaration }),
+        ...(section1Personal !== undefined && { section1Personal: toJsonString(section1Personal) }),
+        ...(section2Contact !== undefined && { section2Contact: toJsonString(section2Contact) }),
+        ...(section3Emergency !== undefined && { section3Emergency: toJsonString(section3Emergency) }),
+        ...(section4Education !== undefined && { section4Education: toJsonString(section4Education) }),
+        ...(section5Experience !== undefined && { section5Experience: toJsonString(section5Experience) }),
+        ...(section6Banking !== undefined && { section6Banking: toJsonString(section6Banking) }),
+        ...(section7Documents !== undefined && { section7Documents: toJsonString(section7Documents) }),
+        ...(section8Declaration !== undefined && { section8Declaration: toJsonString(section8Declaration) }),
       },
       create: {
         userId: auth.userId,
-        section1Personal: section1Personal ?? {},
-        section2Contact: section2Contact ?? {},
-        section3Emergency: section3Emergency ?? {},
-        section4Education: section4Education ?? {},
-        section5Experience: section5Experience ?? {},
-        section6Banking: section6Banking ?? {},
-        section7Documents: section7Documents ?? {},
-        section8Declaration: section8Declaration ?? {},
+        section1Personal: toJsonString(section1Personal),
+        section2Contact: toJsonString(section2Contact),
+        section3Emergency: toJsonString(section3Emergency),
+        section4Education: toJsonString(section4Education),
+        section5Experience: toJsonString(section5Experience),
+        section6Banking: toJsonString(section6Banking),
+        section7Documents: toJsonString(section7Documents),
+        section8Declaration: toJsonString(section8Declaration),
       },
     });
 

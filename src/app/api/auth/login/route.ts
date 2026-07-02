@@ -35,6 +35,7 @@ export async function POST(req: Request) {
         avatarUrl: true,
         tenantId: true,
         requestedRole: true,
+        onboardingStatus: true,
         createdAt: true,
         updatedAt: true,
         individualUser: { select: { id: true, phoneNumber: true, address: true } },

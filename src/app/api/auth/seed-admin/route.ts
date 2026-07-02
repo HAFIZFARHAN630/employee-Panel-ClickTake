@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
 // One-time route: creates a super_admin if none exists.
-// Visit in browser: GET /api/auth/seed-admin
+// Only works in development and requires authentication.
 const SEED_EMAIL = "admin@clicktake.com";
 const SEED_PASSWORD = "Admin@123";
 
-async function seedAdmin() {
+async function seedAdmin(req?: Request) {
   try {
+    // Block in production
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ message: "Not available in production" }, { status: 404 });
+    }
+
+    // Require authentication in non-production
+    if (req) {
+      const auth = await authenticate(req);
+      if (auth instanceof NextResponse) return auth;
+      if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
     // Check if any super_admin exists
     const existing = await db.user.findFirst({
       where: { userType: "super_admin" },
@@ -32,20 +45,11 @@ async function seedAdmin() {
         individualUser: { create: {} },
         employee: { create: {} },
       },
-      include: { individualUser: true, employee: true },
     });
-
-    const { password: _, ...safeUser } = user;
-    void _;
 
     return NextResponse.json({
       message: "Super admin created successfully",
-      user: {
-        ...safeUser,
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString(),
-      },
-      credentials: { email: SEED_EMAIL, password: SEED_PASSWORD },
+      email: user.email,
     });
   } catch (error) {
     console.error("Seed admin error:", error);
@@ -53,10 +57,10 @@ async function seedAdmin() {
   }
 }
 
-export async function GET() {
-  return seedAdmin();
+export async function GET(req: Request) {
+  return seedAdmin(req);
 }
 
-export async function POST() {
-  return seedAdmin();
+export async function POST(req: Request) {
+  return seedAdmin(req);
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate, queryParams } from "@/lib/auth-middleware";
+import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +16,13 @@ export async function GET(req: NextRequest) {
     if (status) {
       where.status = status;
     }
-    if (employeeId) {
+
+    // Non-admin users can only see their own leaves
+    if (!isAdmin(auth)) {
+      const employee = await db.employee.findUnique({ where: { userId: auth.userId } });
+      if (!employee) return NextResponse.json({ message: "No employee record found" }, { status: 403 });
+      where.employeeId = employee.id;
+    } else if (employeeId) {
       where.employeeId = employeeId;
     }
 
@@ -55,7 +61,14 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const { employeeId, type, startDate, endDate, reason, days } = body;
+    let { employeeId, type, startDate, endDate, reason, days } = body;
+
+    // Non-admin users can only create leave requests for themselves
+    if (!isAdmin(auth)) {
+      const employee = await db.employee.findUnique({ where: { userId: auth.userId } });
+      if (!employee) return NextResponse.json({ message: "No employee record found" }, { status: 403 });
+      employeeId = employee.id;
+    }
 
     if (!employeeId || !type || !startDate || !endDate) {
       return NextResponse.json(

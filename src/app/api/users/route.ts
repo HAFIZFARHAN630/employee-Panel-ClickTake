@@ -125,9 +125,12 @@ export async function POST(req: NextRequest) {
       include: { employee: true },
     });
 
+    const { password: _, ...safeUser } = user;
+    void _;
+
     return NextResponse.json(
       {
-        ...user,
+        ...safeUser,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       },

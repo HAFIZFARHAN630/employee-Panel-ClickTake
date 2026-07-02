@@ -429,7 +429,7 @@ export function ChatPage() {
     setNewMessage(`${before}@${member.fullName} ${after}`);
     setShowMentionDropdown(false);
     setMentionQuery("");
-    mentionIndex;
+    void mentionIndex;
 
     // Focus back on input
     setTimeout(() => {

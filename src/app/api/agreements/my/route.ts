@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined): unknown {
+  if (!val) return [];
+  try { return JSON.parse(val); } catch { return []; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -25,8 +30,8 @@ export async function GET(req: NextRequest) {
     const signedIds = new Set(signatures.map((s) => s.templateId));
 
     const result = templates.map((t) => {
-      const roles = JSON.parse(t.applicableRoles) as string[];
-      const depts = JSON.parse(t.applicableDepartments) as string[];
+      const roles = safeJsonParse(t.applicableRoles) as string[];
+      const depts = safeJsonParse(t.applicableDepartments) as string[];
       const userRole = user.userType;
       const userDept = user.employee.department;
 

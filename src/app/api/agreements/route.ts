@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
-function safeJsonParse(val: string | null | undefined): any {
+function safeJsonParse(val: string | null | undefined): unknown {
   if (!val) return [];
-  try { return JSON.parse(val); } catch { return val; }
+  try { return JSON.parse(val); } catch { return []; }
 }
 
 export async function GET(req: NextRequest) {

@@ -51,8 +51,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       events: integration.events,
       createdAt: integration.createdAt.toISOString(),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error updating integration:", error);
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ message: "Integration not found" }, { status: 404 });
+    }
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
@@ -70,8 +73,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await db.integration.delete({ where: { id } });
 
     return NextResponse.json({ message: "Integration deleted" });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error deleting integration:", error);
+    if (error && typeof error === "object" && "code" in error && (error as { code: string }).code === "P2025") {
+      return NextResponse.json({ message: "Integration not found" }, { status: 404 });
+    }
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

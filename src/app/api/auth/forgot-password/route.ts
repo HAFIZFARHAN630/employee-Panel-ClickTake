@@ -15,9 +15,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Email is required" }, { status: 400 });
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
+
+    // Always return the same message to prevent email enumeration
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return NextResponse.json({
+        message: "If an account with that email exists, a password reset link has been sent.",
+      });
     }
 
     const token = generateResetToken();
@@ -25,15 +30,15 @@ export async function POST(req: Request) {
 
     await db.passwordResetToken.create({
       data: {
-        email,
+        email: normalizedEmail,
         token,
         expiresAt,
       },
     });
 
+    // Do NOT return the token in the response
     return NextResponse.json({
-      message: "Password reset link has been sent to your email",
-      token,
+      message: "If an account with that email exists, a password reset link has been sent.",
     });
   } catch (error) {
     console.error("Forgot password error:", error);

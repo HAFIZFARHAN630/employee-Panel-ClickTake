@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate, isAdmin, queryParams } from "@/lib/auth-middleware";
 
+function safeJsonParse(val: string | null | undefined): unknown {
+  if (!val) return [];
+  try { return JSON.parse(val); } catch { return []; }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticate(req);
@@ -38,7 +43,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       logs: logs.map((l) => ({
         ...l,
-        details: JSON.parse(l.details),
+        details: safeJsonParse(l.details),
         createdAt: l.createdAt.toISOString(),
       })),
       total,

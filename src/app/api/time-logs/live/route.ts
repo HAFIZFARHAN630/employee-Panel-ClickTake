@@ -18,10 +18,11 @@ export async function GET(req: NextRequest) {
 
     const now = new Date();
 
-    // Auto-stop dead sessions (> 24 hours with no end_time)
+    // Auto-stop dead sessions (> 24 hours with no end_time) for THIS user only
     const deadThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     await db.timeLog.updateMany({
       where: {
+        employeeId: employee.id,
         endTime: null,
         startTime: { lt: deadThreshold },
       },

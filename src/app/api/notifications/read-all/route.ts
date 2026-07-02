@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticate } from "@/lib/auth-middleware";
+import { authenticate, isAdmin } from "@/lib/auth-middleware";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,11 +8,8 @@ export async function POST(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
-    const userId = body.userId || auth.userId;
-
-    if (!userId) {
-      return NextResponse.json({ message: "userId is required" }, { status: 400 });
-    }
+    // Only allow marking own notifications as read, or admin can mark any
+    const userId = isAdmin(auth) && body.userId ? body.userId : auth.userId;
 
     const result = await db.notification.updateMany({
       where: { userId, isRead: false },

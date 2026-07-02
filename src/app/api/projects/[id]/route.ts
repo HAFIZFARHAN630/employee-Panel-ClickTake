@@ -44,6 +44,7 @@ export async function PUT(
   try {
     const auth = await authenticate(req);
     if (auth instanceof NextResponse) return auth;
+    if (!isAdmin(auth)) return NextResponse.json({ message: "Forbidden: admin only" }, { status: 403 });
 
     const { id } = await params;
     const body = await req.json();
