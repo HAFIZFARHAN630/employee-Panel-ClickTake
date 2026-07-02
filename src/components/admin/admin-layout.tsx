@@ -28,6 +28,7 @@ import { StoragePage } from "./storage-page";
 import { DepartmentsPage } from "./departments-page";
 import { LiveTrackingPage } from "./live-tracking-page";
 import { ChatPage } from "./chat-page";
+import { HRBotWidget } from "@/components/shared/hr-bot-widget";
 import { IntegrationsPage } from "./integrations-page";
 import { BusinessDataPage } from "./business-data-page";
 import { Button } from "@/components/ui/button";
@@ -615,6 +616,7 @@ export function AdminLayout() {
           {adminPage === "settings" && <SettingsPage />}
         </main>
       </div>
+      <HRBotWidget />
     </div>
   );
 }

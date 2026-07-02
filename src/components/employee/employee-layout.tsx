@@ -15,6 +15,7 @@ import { NotificationsPage } from "./notifications-page";
 import { SettingsPage } from "./settings-page";
 import { ChatPage } from "./chat-page";
 import { MySchedulePage } from "./my-schedule";
+import { HRBotWidget } from "@/components/shared/hr-bot-widget";
 import { AgreementsPage } from "./agreements-page";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -330,6 +331,7 @@ export function EmployeeLayout() {
         </main>
       </div>
       <KYCVerificationPopup />
+      <HRBotWidget />
     </div>
   );
 }
